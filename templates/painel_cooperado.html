@@ -234,13 +234,13 @@
   <div class="wrap">
     <!-- ABAS -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="tab-ganhos">Ganhos</button>
-      <button class="tab-btn" data-tab="tab-minhas">Minhas entregas</button>
-      <button class="tab-btn" data-tab="tab-ajuda">Ajuda</button>
+      <button class="tab-btn active" data-tab="tab-minhas">🚚 Minhas entregas</button>
+      <button class="tab-btn" data-tab="tab-ganhos">💰 Ganhos</button>
+      <button class="tab-btn" data-tab="tab-ajuda">🆘 Ajuda</button>
     </nav>
 
     <!-- ABA 1: GANHOS -->
-    <section id="tab-ganhos" class="tab-panel active" aria-label="Ganhos">
+    <section id="tab-ganhos" class="tab-panel" aria-label="Ganhos">
       <h2>Ganhos</h2>
 
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 12px">
@@ -275,7 +275,7 @@
     </section>
 
     <!-- ABA 2: MINHAS ENTREGAS -->
-    <section id="tab-minhas" class="tab-panel" aria-label="Minhas entregas">
+    <section id="tab-minhas" class="tab-panel active" aria-label="Minhas entregas">
       <!-- CARDS -->
       <section class="stats" aria-label="Estatísticas de valores">
         <div class="stat stat--pago" aria-label="Valor pago"><h4>Pago</h4><strong id="tot-pago">R$ {{ '%.2f'|format(total_pago or 0) }}</strong></div>
@@ -735,8 +735,8 @@
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({})
         });
-        const data = await resp.json();
-        if(!resp.ok || data.ok===false){
+        let data=null; try{ data = await resp.json(); }catch(e){ data=null; }
+        if(!resp.ok || (data && data.ok===false)){
           alert(data.error || 'Falha ao aceitar entrega.');
           return;
         }
@@ -755,8 +755,8 @@
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({})
         });
-        const data = await resp.json();
-        if(!resp.ok || data.ok===false){
+        let data=null; try{ data = await resp.json(); }catch(e){ data=null; }
+        if(!resp.ok || (data && data.ok===false)){
           alert(data.error || 'Falha ao recusar entrega.');
           return;
         }
@@ -773,7 +773,7 @@
     async function checarNovasEntregas(){
       try{
         const resp = await fetch(`{{ url_for('cooperado_novas_corridas') }}`);
-        const data = await resp.json();
+        let data=null; try{ data = await resp.json(); }catch(e){ data=null; }
         if(data.nova){
           const audio = document.getElementById('som-nova-entrega');
           if(audio) audio.play().catch(()=>{});
@@ -823,8 +823,8 @@
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ tipo, detalhes })
         });
-        const data = await resp.json();
-        if(!resp.ok || data.ok===false){
+        let data=null; try{ data = await resp.json(); }catch(e){ data=null; }
+        if(!resp.ok || (data && data.ok===false)){
           alert(data.error || 'Falha ao enviar pedido de socorro.');
           return;
         }
@@ -902,6 +902,17 @@
           console.log('Erro GPS:', err);
           gpsAtivo = false;
           atualizarBadgeGPS('error');
+
+          // tenta reconectar automaticamente
+          try{
+            if(gpsWatchId !== null && navigator.geolocation){
+              navigator.geolocation.clearWatch(gpsWatchId);
+            }
+          }catch(e){}
+          gpsWatchId = null;
+
+          // backoff simples (5s)
+          setTimeout(()=>{ try{ iniciarRastreamento(); }catch(e){} }, 5000);
         },
         {
           enableHighAccuracy:true,
@@ -931,19 +942,12 @@
       }
     }
 
-    if(gpsStatusEl){
-      gpsStatusEl.addEventListener('click', ()=>{
-        if(gpsAtivo || gpsWatchId !== null){
-          if(confirm('Deseja desligar o rastreamento da localização?')){
-            pararRastreamento();
-          }
-        }else{
-          iniciarRastreamento();
+    // inicia rastreamento automaticamente ao carregar (sem botão de liga/desliga)
+    window.addEventListener('DOMContentLoaded', ()=>{
+      iniciarRastreamento();
+      // carrega ganhos no mês atual automaticamente
       if(selGanhosMes) carregarGanhos(selGanhosMes.value);
-        }
-      });
-    }
-
+    });
 
     // =============================
     // GANHOS (aba nova)

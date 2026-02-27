@@ -1,6 +1,4 @@
 import os
-import time
-import uuid
 import io
 import re
 import json
@@ -13,10 +11,9 @@ from urllib.parse import urlparse, parse_qs
 from functools import wraps
 from decimal import Decimal
 
-from flask import (, send_from_directory
-from werkzeug.utils import secure_filename
+from flask import (
     Flask, render_template, render_template_string, request, redirect, url_for,
-    flash, session, send_file, jsonify, abort, current_app, 
+    flash, session, send_file, send_from_directory, jsonify, abort, current_app
 )
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from flask_sqlalchemy import SQLAlchemy
@@ -36,49 +33,6 @@ from jinja2 import TemplateNotFound
 # =========================================================
 app = Flask(__name__)
 
-# =========================================================
-# ARQUIVOS: fotos de recebimento (armazenar por 7 dias)
-# =========================================================
-FOTOS_RECEBIMENTO_DIR = os.path.join(app.instance_path, "fotos_recebimento")
-os.makedirs(FOTOS_RECEBIMENTO_DIR, exist_ok=True)
-
-def _cleanup_fotos_recebimento():
-    """Remove fotos com mais de 7 dias (DB + arquivo)."""
-    try:
-        limite = datetime.utcnow() - timedelta(days=7)
-        antigas = EntregaFoto.query.filter(EntregaFoto.created_at < limite).all()
-        for f in antigas:
-            try:
-                fp = os.path.join(FOTOS_RECEBIMENTO_DIR, f.filename)
-                if os.path.exists(fp):
-                    os.remove(fp)
-            except Exception:
-                pass
-            try:
-                db.session.delete(f)
-            except Exception:
-                pass
-        db.session.commit()
-    except Exception:
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
-
-_LAST_CLEANUP_TS = 0.0
-
-@app.before_request
-def _periodic_cleanup():
-    global _LAST_CLEANUP_TS
-    try:
-        now_ts = time.time()
-        if now_ts - _LAST_CLEANUP_TS > 1800:
-            _cleanup_fotos_recebimento()
-            _LAST_CLEANUP_TS = now_ts
-    except Exception:
-        pass
-
-
 # Usa a mesma chave que você já tinha, só mudando para config
 app.config['SECRET_KEY'] = os.environ.get(
     'SECRET_KEY',
@@ -86,7 +40,6 @@ app.config['SECRET_KEY'] = os.environ.get(
 )
 
 # 🔽 INSTÂNCIA DO SOCKETIO LIGADA NO APP
-from flask_socketio import SocketIO
 
 socketio = SocketIO(
     app,
@@ -559,26 +512,6 @@ def emitir_posicao_motoboy(cooperado: Cooperado, lat: float, lng: float, velocid
         except Exception:
             pass
 
-
-
-# =========================================================
-# FOTO DE COMPROVANTE (RECEBIMENTO) - 7 dias
-# =========================================================
-class EntregaFoto(db.Model):
-    __tablename__ = 'entrega_foto'
-
-    id = db.Column(db.Integer, primary_key=True)
-    entrega_id = db.Column(db.Integer, db.ForeignKey('entrega.id'), nullable=False, index=True)
-    filename = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    entrega = db.relationship('Entrega', backref=db.backref('fotos_recebimento', lazy='dynamic', cascade='all,delete'))
-
-    def is_expired(self) -> bool:
-        try:
-            return (datetime.utcnow() - (self.created_at or datetime.utcnow())) > timedelta(days=7)
-        except Exception:
-            return False
 
 class Credito(db.Model):
     __tablename__ = 'credito'
@@ -2766,23 +2699,7 @@ def admin():
                 "ultima_atualizacao": to_brasilia(c.last_ping).strftime('%d/%m %H:%M') if c.last_ping else ""
             })
 
-        foto_por_entrega = {}
-    try:
-        ids = [e.id for e in entregas]
-        if ids:
-            fotos = (EntregaFoto.query.filter(EntregaFoto.entrega_id.in_(ids)).order_by(EntregaFoto.created_at.desc()).all())
-            for f in fotos:
-                if f.is_expired():
-                    continue
-                if f.entrega_id not in foto_por_entrega:
-                    foto_por_entrega[f.entrega_id] = {
-                        'view': url_for('admin_ver_foto_recebimento', entrega_id=f.entrega_id),
-                        'download': url_for('admin_download_foto_recebimento', entrega_id=f.entrega_id),
-                    }
-    except Exception:
-        foto_por_entrega = {}
-
-return render_template(
+    return render_template(
         'admin.html',
         entregas=entregas,
         cooperados=cooperados,
@@ -2799,82 +2716,184 @@ return render_template(
         # >>> VARIÁVEIS NOVAS PARA O JS <<<
         cooperados_js=cooperados_js,
         motoboys_js=motoboys_js,
-        foto_por_entrega=foto_por_entrega,
     )
-
-
-
-# =========================================================
-# ADMIN: VER / BAIXAR FOTO DE RECEBIMENTO (7 dias)
-# =========================================================
-def _get_latest_foto_entrega(entrega_id: int):
-    try:
-        return (EntregaFoto.query
-                .filter(EntregaFoto.entrega_id == entrega_id)
-                .order_by(EntregaFoto.created_at.desc())
-                .first())
-    except Exception:
-        return None
-
-@app.get('/admin/entregas/<int:entrega_id>/foto')
-def admin_ver_foto_recebimento(entrega_id):
-    if not session.get('is_admin') and not session.get('is_master'):
-        return redirect(url_for('login'))
-    f = _get_latest_foto_entrega(entrega_id)
-    if not f or f.is_expired():
-        abort(404)
-    return send_from_directory(FOTOS_RECEBIMENTO_DIR, f.filename)
-
-@app.get('/admin/entregas/<int:entrega_id>/foto/download')
-def admin_download_foto_recebimento(entrega_id):
-    if not session.get('is_admin') and not session.get('is_master'):
-        return redirect(url_for('login'))
-    f = _get_latest_foto_entrega(entrega_id)
-    if not f or f.is_expired():
-        abort(404)
-    return send_from_directory(FOTOS_RECEBIMENTO_DIR, f.filename, as_attachment=True, download_name=f.filename)
 
 
 @app.route("/admin_novo_socorro")
 def admin_novo_socorro():
-    """Retorna socorros pendentes. Só some quando o admin clicar no X."""
+    """
+    Rota que o PAINEL DA SUPERVISÃO (admin) fica consultando de tempos em tempos.
+    Se tiver um socorro não lido, devolve os dados.
+    Não tem HTML, só JSON.
+    """
+
+    # MESMA regra de permissão que você usa no /admin
+    # (se no seu app for outro campo, troque "is_admin" por ele)
     if not session.get("is_admin") and not session.get("is_master"):
         abort(403)
 
-    pendentes = [s for s in SOCORROS_PENDENTES if not s.get("lido")]
-    if not pendentes:
-        return jsonify({"novo": False, "count": 0, "socorros": []}), 200
+    global ULTIMO_SOCORRO
+    if not ULTIMO_SOCORRO or ULTIMO_SOCORRO.get("lido"):
+        # não tem socorro novo
+        return jsonify({"novo": False}), 200
 
-    return jsonify({"novo": True, "count": len(pendentes), "socorros": pendentes}), 200
+    # marca como lido (só dispara uma vez)
+    ULTIMO_SOCORRO["lido"] = True
 
+    return jsonify({
+        "novo": True,
+        "cooperado": ULTIMO_SOCORRO["cooperado_nome"],
+        "mensagem": ULTIMO_SOCORRO["mensagem"] or "",
+        "momento": ULTIMO_SOCORRO["momento"],
+    }), 200
 
-@app.post("/admin_socorro_marcar_lido")
-def admin_socorro_marcar_lido():
-    if not session.get("is_admin") and not session.get("is_master"):
-        return jsonify(ok=False, error="forbidden"), 403
+# ================================
+# PAINEL DO COOPERADO (ESTILO UBER)
+# ================================
+@app.route('/painel_cooperado')
+def painel_cooperado():
+    # Cooperado logado = precisa ter user_id na sessão E NÃO ser admin
+    if session.get('user_id') is None or session.get('is_admin'):
+        return redirect(url_for('login'))
 
-    data = request.get_json(silent=True) or {}
-    sid = data.get("id", None)
-    marcar_todos = bool(data.get("all", False))
+    user_id = session['user_id']
 
-    if marcar_todos:
-        for s in SOCORROS_PENDENTES:
-            s["lido"] = True
-        return jsonify(ok=True)
+    inicio = request.args.get('inicio')
+    fim = request.args.get('fim')
+    status_pgto = (request.args.get('status_pgto') or 'todas').lower()
+    todas_datas_flag = (request.args.get('todas_datas') or '') == '1'
 
-    try:
-        sid = int(sid)
-    except Exception:
-        return jsonify(ok=False, error="id inválido"), 400
+    # Base de consultas: entregas desse cooperado
+    base_q = Entrega.query.filter(Entrega.cooperado_id == user_id)
 
-    for s in SOCORROS_PENDENTES:
-        if int(s.get("id", -1)) == sid:
-            s["lido"] = True
-            return jsonify(ok=True)
+    # ========== CORRIDAS EM ABERTO / EM ANDAMENTO ==========
+    # Qualquer corrida que ainda não esteja finalizada
+    corridas_query = (
+        base_q
+        .filter(
+            (Entrega.status_corrida == None) |
+            (Entrega.status_corrida.in_(['pendente', 'aceita']))
+        )
+        .filter(
+            (Entrega.status == None) |
+            (~func.lower(Entrega.status).in_(['recebido', 'entregue']))
+        )
+        .order_by(Entrega.data_envio.desc())
+    )
 
-    return jsonify(ok=False, error="socorro não encontrado"), 404
+    corridas_raw = corridas_query.all()
 
+    def _parse_json_field(raw):
+        """Tenta fazer json.loads, se vier string; se der erro, devolve {}."""
+        if not raw:
+            return {}
+        if isinstance(raw, dict):
+            return raw
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
 
+    corridas = []
+    for e in corridas_raw:
+        origem = _parse_json_field(e.origem_json)
+        destino = _parse_json_field(e.destino_json)
+        paradas = _parse_json_field(e.paradas_json)
+
+        origem_endereco = (
+            origem.get('endereco')
+            or origem.get('address')
+            or (origem.get('rua') and f"{origem.get('rua')} {origem.get('numero', '')}".strip())
+            or e.bairro
+            or 'Origem não informada'
+        )
+
+        destino_endereco = (
+            destino.get('endereco')
+            or destino.get('address')
+            or (destino.get('rua') and f"{destino.get('rua')} {destino.get('numero', '')}".strip())
+            or 'Destino não informado'
+        )
+
+        origem_bairro = origem.get('bairro') or ''
+        destino_bairro = destino.get('bairro') or ''
+
+        # Lista simples de paradas intermediárias
+        waypoints = paradas.get('stops') or paradas.get('paradas') or []
+
+        corridas.append({
+            "obj": e,
+            "origem_endereco": origem_endereco,
+            "destino_endereco": destino_endereco,
+            "origem_bairro": origem_bairro,
+            "destino_bairro": destino_bairro,
+            "waypoints": waypoints,
+        })
+
+    # ========== HISTÓRICO (TABELA) ==========
+    query = base_q
+
+    # Filtro por status de pagamento
+    if status_pgto == 'pago':
+        query = query.filter(func.lower(Entrega.status_pagamento) == 'pago')
+    elif status_pgto == 'pendente':
+        query = query.filter(
+            (Entrega.status_pagamento == None) |
+            (func.lower(Entrega.status_pagamento) == 'pendente')
+        )
+
+    # Filtros de data
+    if not todas_datas_flag:
+        hoje_brasil = datetime.now(BRAZIL_TZ).date()
+
+        # Nenhuma data informada -> dia atual
+        if not inicio and not fim:
+            inicio_utc, fim_utc = local_date_window_to_utc_range(hoje_brasil)
+            query = query.filter(
+                Entrega.data_envio >= inicio_utc,
+                Entrega.data_envio <= fim_utc
+            )
+
+        # Data inicial
+        if inicio:
+            di = datetime.strptime(inicio, "%Y-%m-%d").date()
+            inicio_utc, _ = local_date_window_to_utc_range(di)
+            query = query.filter(Entrega.data_envio >= inicio_utc)
+
+        # Data final
+        if fim:
+            df_ = datetime.strptime(fim, "%Y-%m-%d").date()
+            _, fim_utc = local_date_window_to_utc_range(df_)
+            query = query.filter(Entrega.data_envio <= fim_utc)
+
+    # Ordenação e carregamento do cooperado (se precisar no template)
+    entregas = (
+        query
+        .options(joinedload(Entrega.cooperado))
+        .order_by(Entrega.data_envio.desc())
+        .all()
+    )
+
+    # Totais
+    total_geral = sum(float(e.valor or 0) for e in entregas)
+    total_pago = sum(
+        float(e.valor or 0)
+        for e in entregas
+        if (e.status_pagamento or '').lower() == 'pago'
+    )
+    total_pendente = max(0.0, total_geral - total_pago)
+
+    return render_template(
+        'painel_cooperado.html',
+        entregas=entregas,
+        corridas=corridas,
+        total_geral=total_geral,
+        total_pago=total_pago,
+        total_pendente=total_pendente,
+        request=request,
+        to_brasilia=to_brasilia,
+        status_pgto=status_pgto
+    )
 
 @app.route("/cooperado/verificar_nova_entrega")
 def cooperado_verificar_nova_entrega():
@@ -3333,13 +3352,10 @@ def api_mobile_cooperado_corridas():
 
 # variável global bem simples pra sinalizar um novo socorro
 ULTIMO_SOCORRO = None
-SOCORROS_PENDENTES = []
-SOCORRO_SEQ = 0
 
 @app.route("/cooperado_socorro", methods=["POST"])
-
 def cooperado_socorro():
-    global SOCORROS_PENDENTES, SOCORRO_SEQ
+    global ULTIMO_SOCORRO
 
     data = request.get_json() or {}
     tipo = data.get("tipo")
@@ -3353,21 +3369,47 @@ def cooperado_socorro():
 
     agora_brt = datetime.now(BRAZIL_TZ)
 
-    SOCORRO_SEQ += 1
-    soc = {
-        "id": SOCORRO_SEQ,
+    ULTIMO_SOCORRO = {
         "cooperado_id": cooperado_id,
         "cooperado_nome": cooperado_nome,
+        # o que o admin_novo_socorro espera:
         "mensagem": f"{tipo}: {detalhes}" if detalhes else tipo,
         "momento": agora_brt.strftime("%d/%m/%Y %H:%M"),
         "timestamp": datetime.utcnow().isoformat(),
         "lido": False,
     }
 
-    SOCORROS_PENDENTES.append(soc)
-    socketio.emit("socorro_novo", soc, broadcast=True)
+    socketio.emit("socorro_novo", ULTIMO_SOCORRO, broadcast=True)
 
     return jsonify({"ok": True})
+
+# ================================
+# CRUD de COOPERADO (mantidos)
+# ================================
+@app.route('/cooperados/cadastrar', methods=['GET', 'POST'])
+def cadastrar_cooperado():
+    if not session.get('is_admin'):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        senha = request.form.get('senha')
+        if nome and senha:
+            if Cooperado.query.filter_by(nome=nome).first():
+                flash('Já existe um cooperado com esse nome!')
+            else:
+                novo = Cooperado(nome=nome)
+                novo.set_senha(senha)
+                db.session.add(novo)
+                db.session.commit()
+                flash('Cooperado cadastrado com sucesso!')
+        else:
+            flash('Preencha todos os campos.')
+        return redirect(url_for('cadastrar_cooperado'))
+
+    cooperados = Cooperado.query.order_by(Cooperado.nome).all()
+    return render_template('cadastrar_cooperado.html', cooperados=cooperados)
+
 
 @app.route('/cooperados/<int:coop_id>/atualizar', methods=['POST'])
 def atualizar_cooperado(coop_id):
@@ -5459,49 +5501,17 @@ def toggle_pagamento(id):
     return jsonify(ok=True, status_pagamento=novo)
 
 
-
-@app.route('/cooperado/marcar_entregue/<int:id>', methods=['POST'])
+@app.post('/cooperado/marcar_entregue/<int:id>')
 def cooperado_marcar_entregue(id):
     e = Entrega.query.get_or_404(id)
     _assert_entrega_do_cooperado(e)
-
-    # Aceita JSON (antigo) ou multipart/form-data (novo com foto)
-    recebido_por = ''
-    foto_file = None
-
-    if request.content_type and request.content_type.startswith('multipart/form-data'):
-        recebido_por = (request.form.get('recebido_por') or '').strip()
-        foto_file = request.files.get('foto')
-    else:
-        payload = request.get_json(silent=True) or {}
-        recebido_por = (payload.get('recebido_por') or '').strip()
-
-    has_foto = bool(foto_file and getattr(foto_file, 'filename', ''))
-    if not recebido_por and not has_foto:
-        return jsonify(ok=False, error='Informe "Recebido por" OU envie uma foto (opcional).'), 400
-
+    payload = request.get_json(silent=True) or {}
+    recebido_por = (payload.get('recebido_por') or '').strip()
+    if not recebido_por:
+        return jsonify(ok=False, error='Campo "recebido_por" é obrigatório.'), 400
     e.status = 'recebido'
-    if recebido_por:
-        e.recebido_por = recebido_por
+    e.recebido_por = recebido_por
     db.session.commit()
-
-    if has_foto:
-        filename = secure_filename(foto_file.filename or '')
-        ext = os.path.splitext(filename)[1].lower()
-        if ext not in ('.jpg', '.jpeg', '.png', '.webp'):
-            return jsonify(ok=False, error='Formato de foto inválido. Use JPG/PNG/WEBP.'), 400
-
-        unique = f"entrega_{e.id}_{uuid.uuid4().hex}{ext}"
-        save_path = os.path.join(FOTOS_RECEBIMENTO_DIR, unique)
-        try:
-            foto_file.save(save_path)
-        except Exception:
-            return jsonify(ok=False, error='Não foi possível salvar a foto.'), 500
-
-        rec = EntregaFoto(entrega_id=e.id, filename=unique)
-        db.session.add(rec)
-        db.session.commit()
-
     return jsonify(ok=True)
 
 

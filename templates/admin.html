@@ -904,8 +904,14 @@
 
             <div class="map-header-actions">
               <select id="mapSearch" class="map-search">
-                <option value="">🔍 Localizar motoboy…</option>
+                <option value="" data-fixed>🔍 Localizar motoboy…</option>
               </select>
+
+              <select id="mapFilter" class="map-search" style="max-width:190px">
+                <option value="all">👁️ Ver todos</option>
+                <option value="online">🟢 Só online</option>
+              </select>
+
 
               <button id="btnFullMap" class="map-full-btn" type="button">Mapa em tela cheia</button>
             </div>
@@ -1948,7 +1954,7 @@
 
       // marcador fino e pequeno
       function makeMarker(lat,lng, tooltipHtml, status){
-        var color = (status === 'online' || status === 'livre' || status === 'em_corrida') ? '#16a34a' : '#ef4444';
+        var color = (String(status||'').toLowerCase().trim() !== 'offline') ? '#16a34a' : '#ef4444';
         var m = L.circleMarker([lat,lng], {
           radius: 4,
           weight: 1,
@@ -1962,7 +1968,58 @@
         return m;
       }
 
-      var markers = {}; // id -> marker
+      var markers = {}; // id       var lastData = []; // último payload do backend
+
+      function normStatus(p){
+        var st = String(p && p.status ? p.status : '').toLowerCase().trim();
+        if(p && p.online === false) st = 'offline';
+        if(!st) st = (p && p.online) ? 'livre' : 'offline';
+        return st;
+      }
+
+      function statusLabel(st){
+        if(st === 'offline') return 'offline';
+        if(st === 'em_corrida') return 'em_corrida';
+        if(st === 'livre') return 'livre';
+        if(st === 'ocioso') return 'ocioso';
+        return st || 'livre';
+      }
+
+      function preencherLocalizar(data){
+        var sel = document.getElementById('mapSearch');
+        if(!sel) return;
+        var filtro = (document.getElementById('mapFilter')||{}).value || 'all';
+        var current = sel.value;
+        // limpa mantendo placeholder
+        sel.querySelectorAll('option:not([data-fixed])').forEach(function(o){ o.remove(); });
+
+        var list = (Array.isArray(data)? data: []).slice();
+        // ordena por nome
+        list.sort(function(a,b){
+          return String(a.nome||'').localeCompare(String(b.nome||''), 'pt-BR', {sensitivity:'base'});
+        });
+
+        list.forEach(function(p){
+          if(!p || p.id == null) return;
+          var st = normStatus(p);
+          if(filtro === 'online' && st === 'offline') return;
+
+          var opt = document.createElement('option');
+          opt.value = String(p.id);
+          var tag = (st === 'offline') ? '🔴' : '🟢';
+          opt.textContent = tag + ' ' + (p.nome||('ID '+p.id));
+          sel.appendChild(opt);
+        });
+
+        // restaura seleção se ainda existir
+        if(current){
+          var exists = Array.from(sel.options).some(function(o){ return o.value === current; });
+          if(exists) sel.value = current;
+          else sel.value = '';
+        }
+      }
+
+-> marker
 
       async function atualizar(){
         try{
@@ -1973,10 +2030,15 @@
           if(!r.ok) return;
           const data = await r.json();
           if(!Array.isArray(data)) return;
+          lastData = data;
+          preencherLocalizar(lastData);
 
           const seen = new Set();
+          var filtro = (document.getElementById('mapFilter')||{}).value || 'all';
           data.forEach(function(p){
             if(typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+            var st = normStatus(p);
+            if(filtro === 'online' && st === 'offline') return;
             seen.add(String(p.id));
 
             var html = '<b>'+ (p.nome||'') +'</b>'
@@ -1985,10 +2047,14 @@
                      + (p.endereco ? '<br><span style="opacity:.9">'+p.endereco+'</span>' : '');
 
             if(!markers[String(p.id)]){
-              markers[String(p.id)] = makeMarker(p.lat, p.lng, html, p.status);
+              markers[String(p.id)] = makeMarker(p.lat, p.lng, html, st);
             }else{
               markers[String(p.id)].setLatLng([p.lat,p.lng]);
               markers[String(p.id)].setTooltipContent(html);
+              try{
+                var c = (String(st).toLowerCase().trim() !== 'offline') ? '#16a34a' : '#ef4444';
+                markers[String(p.id)].setStyle({color:c, fillColor:c});
+              }catch(e){}
             }
           });
 
@@ -2000,6 +2066,27 @@
             }
           });
         }catch(e){}
+      }
+
+      var sel = document.getElementById('mapSearch');
+      var flt = document.getElementById('mapFilter');
+      if(flt){
+        flt.addEventListener('change', function(){
+          // forçar repintura com o último payload
+          preencherLocalizar(lastData);
+          atualizar();
+        });
+      }
+      if(sel){
+        sel.addEventListener('change', function(){
+          var id = sel.value;
+          if(!id) return;
+          var mk = markers[String(id)];
+          if(mk){
+            try{ map.setView(mk.getLatLng(), Math.max(map.getZoom(), 15)); }catch(e){}
+            try{ mk.openTooltip(); }catch(e){}
+          }
+        });
       }
 
       atualizar();

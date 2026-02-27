@@ -5845,8 +5845,8 @@ def cooperado_marcar_entregue(id):
     recebido_por = ''
     foto_fs = None
 
-    # 1) Se veio upload (FormData), pega do form/files
-    if request.files:
+    # 1) Se veio multipart (FormData), pega do form/files (mesmo sem arquivo)
+    if request.mimetype == 'multipart/form-data' or request.form:
         recebido_por = (request.form.get('recebido_por') or '').strip()
         foto_fs = request.files.get('foto')
     else:

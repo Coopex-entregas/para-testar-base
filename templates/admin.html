@@ -15,18 +15,8 @@
   />
 
   <!-- MarkerCluster (AGRUPAMENTO) -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
-    crossorigin=""
-  />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
-    crossorigin=""
-  />
 
-  <style>
+<style>
     :root{
       --royal:#0f35b5;
       --royal-2:#395de1;
@@ -685,7 +675,7 @@
       height:34px;
       border-radius:14px;
       background:rgba(255,255,255,.92);
-      border:1px solid rgba(255,255,255,.75);
+      border:2px solid rgba(255,255,255,.85);
       box-shadow:0 10px 22px rgba(0,0,0,.18);
       transform: translate3d(0,0,0);
     }
@@ -722,32 +712,109 @@
     .cluster-badge.online{ background: #10b981; }
     .cluster-badge.offline{ background: #ef4444; }
   
-    /* ===== FOTO COMPROVANTE ===== */
-    .foto-btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:30px;height:30px;border-radius:12px;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.10);
-      text-decoration:none;
-      font-weight:900;
-      line-height:1;
-    }
-    .foto-btn.foto-ok{ background:rgba(16,185,129,.18); border-color:rgba(16,185,129,.55); }
-    .foto-btn.foto-no{ background:rgba(239,68,68,.16); border-color:rgba(239,68,68,.55); opacity:.95; }
-    .foto-dl{
-      margin-left:6px;
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px;height:28px;border-radius:12px;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.10);
-      text-decoration:none;
-      font-weight:900;
-    }
-
+.td-recebido{ text-align:center; }
+.recebido-wrap{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.cam-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:10px;
+  font-size:16px;
+  text-decoration:none;
+  user-select:none;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(15,23,42,.35);
+}
+.cam-btn--on{ border-color: rgba(34,197,94,.55); box-shadow:0 0 0 2px rgba(34,197,94,.12) inset; }
+.cam-btn--off{ border-color: rgba(239,68,68,.55); box-shadow:0 0 0 2px rgba(239,68,68,.12) inset; opacity:.9; }
+.cam-dl{
+  display:none;
+  font-size:12px;
+  text-decoration:none;
+  opacity:.85;
+}
+.cam-btn--on + .cam-dl{ display:inline; }
+.recebido-nome{ font-size:12px; line-height:1.1; max-width:120px; word-break:break-word; opacity:.95; }
+  
+.socorro-box{
+  margin:16px 0;
+  border-radius:16px;
+  border:1px solid rgba(239,68,68,.35);
+  background: rgba(239,68,68,.06);
+  box-shadow:0 10px 26px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+.socorro-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  background: rgba(239,68,68,.10);
+  border-bottom:1px solid rgba(239,68,68,.20);
+  font-size:13px;
+}
+.socorro-left{ display:flex; align-items:center; gap:8px; }
+.socorro-dot{ width:10px; height:10px; border-radius:50%; background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.18); }
+.socorro-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:22px;
+  height:18px;
+  padding:0 6px;
+  border-radius:999px;
+  background:#ef4444;
+  color:#fff;
+  font-weight:700;
+  font-size:12px;
+}
+.socorro-list{ padding:10px 12px; display:flex; flex-direction:column; gap:10px; }
+.socorro-item{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:rgba(15,23,42,.35);
+  padding:10px 10px;
+}
+.socorro-title{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font-size:12px; opacity:.95;
+  margin-bottom:6px;
+}
+.socorro-msg{ font-size:13px; line-height:1.25; }
+.socorro-x{
+  border:none;
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  width:26px; height:26px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.socorro-x:hover{ background:rgba(255,255,255,.14); }
   </style>
 </head>
 
 <body>
+<div id="socorro-box" class="socorro-box" style="display:none">
+  <div class="socorro-head">
+    <div class="socorro-left">
+      <span class="socorro-dot"></span>
+      <span>Socorro pendente</span>
+      <span class="socorro-badge" id="socorro-count">0</span>
+    </div>
+    <div class="socorro-right">Clique no ✕ para marcar como visto.</div>
+  </div>
+  <div id="socorro-list" class="socorro-list"></div>
+</div>
+
   <!-- HEADER -->
   <header>
     <div class="topbar">
@@ -976,7 +1043,6 @@
                   <th>Status</th>
                   <th>Pagamento</th>
                   <th>Recebido por</th>
-                  <th>Foto</th>
                   <th>Rastreio</th>
                   <th>Ações</th>
                 </tr>
@@ -1054,24 +1120,27 @@
                     {% endif %}
                   </td>
 
-                  <td title="{{ e.recebido_por or '-' }}">{{ e.recebido_por or '-' }}</td>
-
-                  <td style="text-align:center">
-                    {% if tem_comprovante(e.id) %}
-                      <a class="foto-btn foto-ok" title="Ver foto" target="_blank" rel="noopener" href="{{ url_for('admin_ver_comprovante', entrega_id=e.id) }}">📷</a>
-                      <a class="foto-dl" title="Baixar" href="{{ url_for('admin_baixar_comprovante', entrega_id=e.id) }}">⬇</a>
-                    {% else %}
-                      <span class="foto-btn foto-no" title="Sem foto">📷</span>
-                    {% endif %}
-                  </td>
+                  <td class="td-recebido">
+  {% set foto = (foto_por_entrega.get(e.id) if foto_por_entrega else None) %}
+  <div class="recebido-wrap">
+    {% if foto %}
+      <a class="cam-btn cam-btn--on" href="{{ foto.view }}" target="_blank" title="Ver foto de recebimento">
+        <span class="cam-ico">📷</span>
+      </a>
+      <a class="cam-dl" href="{{ foto.download }}" title="Baixar foto">⬇</a>
+    {% else %}
+      <span class="cam-btn cam-btn--off" title="Sem foto">
+        <span class="cam-ico">📷</span>
+      </span>
+    {% endif %}
+    <div class="recebido-nome" title="{{ e.recebido_por or '-' }}">{{ e.recebido_por or '-' }}</div>
+  </div>
+</td>
 
                   <td>
-                    {% set st_ent = (e.status or '')|lower %}
-                    {% if tem_coop and st_ent not in ['recebido','entregue'] %}
-                      {% set rastreio_link = url_for('rastreio_publico', token=token_rastreio(e.id), _external=True) %}
+                    {% if tem_coop %}
+                      {% set rastreio_link = url_for('rastreamento', codigo=e.id, motoboy_id=e.cooperado.id, _external=True) %}
                       <a href="{{ rastreio_link }}" target="_blank" class="act-open" rel="noopener">Abrir</a>
-                    {% elif tem_coop %}
-                      <span class="small">Encerrado</span>
                     {% else %}
                       <span class="small">—</span>
                     {% endif %}
@@ -1210,582 +1279,174 @@
       ov.style.display = 'none';
       document.body.classList.remove('locked');
     }
-    window.addEventListener('DOMContentLoaded', ()=>{
-      const ok = document.getElementById('modal-ok');
-      const ov = document.getElementById('overlay');
-      if(ok) ok.addEventListener('click', hideModal);
-      if(ov) ov.addEventListener('click', (e)=>{
-        if(e.target === ov) hideModal();
-      });
-    });
+    
+<script>
+  // ===== MAPA (SEM AGRUPAR) + TOOLTIP NO HOVER =====
+  window.addEventListener('DOMContentLoaded', function(){
+    var mapEl = document.getElementById('map-coopex');
+    if (!mapEl || typeof L === 'undefined') return;
 
-    function contarSemCooperado(){
-      try{
-        const rows = document.querySelectorAll('.tabela tbody tr');
-        let n = 0;
-        rows.forEach(tr=>{
-          const el = tr.querySelector('.coop-editable');
-          const cid = el?.dataset?.cooperadoId || '';
-          if(!cid) n++;
-        });
-        return n;
-      }catch(e){ return 0; }
-    }
-    function atualizarBadgeAbertas(){
-      const badge = document.getElementById('abertasBadge');
-      if(!badge) return;
-      const n = contarSemCooperado();
-      badge.textContent = n + ' em aberto';
-      badge.style.display = 'inline-flex';
+    var map = L.map('map-coopex', { zoomControl: true }).setView([-5.7945, -35.211], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    var markersById = {};
+
+    function markerStyle(status){
+      // cor via class no circleMarker
+      if(status === 'online') return { radius: 4, weight: 1, opacity: 1, fillOpacity: 0.35 };
+      if(status === 'em_corrida') return { radius: 4, weight: 1, opacity: 1, fillOpacity: 0.35 };
+      if(status === 'livre') return { radius: 4, weight: 1, opacity: 1, fillOpacity: 0.35 };
+      return { radius: 4, weight: 1, opacity: 1, fillOpacity: 0.20 };
     }
 
-    (function(){
-      try{
-        const saved = localStorage.getItem('coopex_theme') || 'light';
-        if(saved === 'dark') document.body.classList.add('dark');
-        const btn = document.getElementById('btnTheme');
-        const sync = ()=> btn && (btn.textContent = document.body.classList.contains('dark') ? 'Modo claro' : 'Modo escuro');
-        if(btn){
-          sync();
-          btn.addEventListener('click', ()=>{
-            document.body.classList.toggle('dark');
-            localStorage.setItem('coopex_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
-            sync();
-          });
-        }
-      }catch(e){}
-    })();
+    function tooltipHtml(m){
+      var nome = (m.nome || '').toString();
+      var st = (m.status || '').toString();
+      var sp = (m.velocidade || 0);
+      var ult = (m.ultima_atualizacao || '');
+      var end = (m.endereco || '');
+      return '<div style="font-size:12px;line-height:1.25;min-width:180px">'
+           + '<div style="font-weight:700;margin-bottom:4px">' + nome + '</div>'
+           + '<div><b>Status:</b> ' + st + '</div>'
+           + '<div><b>Vel:</b> ' + sp + ' km/h</div>'
+           + '<div><b>Última:</b> ' + ult + '</div>'
+           + (end ? '<div><b>Local:</b> '+end+'</div>' : '')
+           + '</div>';
+    }
 
-    window.addEventListener('DOMContentLoaded', atualizarBadgeAbertas);
+    function upsertMarker(mb){
+      var id = mb.id;
+      var lat = mb.lat, lng = mb.lng;
+      if(typeof lat !== 'number' || typeof lng !== 'number') return;
 
-    document.addEventListener('click', (ev)=>{
-      const st = ev.target.closest?.('.js-toggle-pagto, .js-toggle-entrega');
-      if(!st) return;
-      const form = st.closest?.('form');
-      if(!form) return;
+      var st = (mb.status || 'offline');
+      var existing = markersById[id];
 
-      const confirmar = st.classList.contains('js-toggle-pagto')
-        ? 'Confirmar pagamento como PAGO?'
-        : 'Confirmar entrega como ENTREGUE?';
-      if(!confirm(confirmar)) return;
+      if(!existing){
+        var cm = L.circleMarker([lat, lng], markerStyle(st)).addTo(map);
+        cm.__status = st;
 
-      ev.preventDefault();
-      try{
-        const fd = new FormData(form);
-        fetch(form.action, { method:'POST', body:fd, headers:{'X-Requested-With':'fetch'} })
-          .then(res=>{
-            if(!res.ok) throw new Error('Falha ao atualizar.');
-            showToast('<strong>Atualizado com sucesso.</strong>');
-            setTimeout(()=> location.reload(), 350);
-          })
-          .catch(()=> showToast('<strong>Não foi possível atualizar agora.</strong>'));
-      }catch(e){
-        showToast('<strong>Não foi possível atualizar agora.</strong>');
+        // classes no SVG via pane? simples: setStyle depois
+        cm.bindTooltip(tooltipHtml(mb), { direction:'top', opacity:0.98, sticky:true });
+        cm.on('mouseover', function(){ this.openTooltip(); });
+        cm.on('mouseout', function(){ this.closeTooltip(); });
+
+        markersById[id] = cm;
+      }else{
+        existing.setLatLng([lat, lng]);
+        existing.setStyle(markerStyle(st));
+        existing.__status = st;
+        existing.setTooltipContent(tooltipHtml(mb));
       }
-    });
+    }
 
-    function removerDaFilaPorNome(nome){
+    async function refreshMotoboys(){
       try{
-        if(!nome) return;
-        const ul = document.getElementById('espera-lista');
-        if(!ul) return;
-
-        const itens = ul.querySelectorAll('.espera-chip');
-        let alvo = null;
-        itens.forEach(li=>{
-          const txt = (li.querySelector('.espera-chip-text')?.textContent || '').trim().toLowerCase();
-          if(txt && txt === String(nome).trim().toLowerCase()) alvo = li;
-        });
-        if(!alvo) return;
-
-        const form = alvo.querySelector('form');
-        if(form?.action){
-          fetch(form.action, { method:'POST', headers:{'X-Requested-With':'fetch'} }).catch(()=>{});
-        }
-        alvo.remove();
-
-        const restou = ul.querySelectorAll('.espera-chip').length;
-        if(restou === 0){
-          const li = document.createElement('li');
-          li.id = 'fila-vazia';
-          li.className = 'small';
-          li.style.opacity = '.85';
-          li.textContent = 'Nenhum cooperado na fila.';
-          ul.appendChild(li);
-        }
+        const resp = await fetch('{{ url_for("mapa_motoboys") }}', { headers: { 'X-Requested-With': 'fetch' } });
+        if(!resp.ok) return;
+        const data = await resp.json();
+        if(!Array.isArray(data)) return;
+        data.forEach(upsertMarker);
       }catch(e){}
     }
 
-    document.addEventListener('click', (ev)=>{
-      const el = ev.target.closest?.('.coop-editable');
-      if(!el) return;
+    refreshMotoboys();
+    setInterval(refreshMotoboys, 5000);
 
-      const idEntrega = el.dataset?.id || '';
-      const atual     = el.dataset?.cooperadoId || '';
+    // ===== SOCORRO (CONTADOR ATÉ O ADMIN CLICAR NO X) =====
+    const socorroAudio = new Audio('{{ url_for("static", filename="socorro.mp3") }}');
+    socorroAudio.loop = false;
 
-      const sel = document.createElement('select');
-      sel.style.borderRadius='12px';
-      sel.style.padding='7px 10px';
-      sel.style.fontWeight='900';
+    const box = document.getElementById('socorro-box');
+    const countEl = document.getElementById('socorro-count');
+    const listEl = document.getElementById('socorro-list');
 
-      const opt0 = document.createElement('option');
-      opt0.value=''; opt0.textContent='Sem Cooperado';
-      sel.appendChild(opt0);
+    const seen = new Set();
 
-      (window.COOPERADOS || []).forEach(c=>{
-        const o = document.createElement('option');
-        o.value=c.id;
-        o.textContent=c.nome;
-        if(String(c.id)===String(atual)) o.selected=true;
-        sel.appendChild(o);
-      });
-
-      el.parentNode.replaceChild(sel, el);
-      sel.focus();
-
-      function salvar(){
-        const coopId = sel.value || '';
-        let nomeEscolhido = 'Sem Cooperado';
-        if(sel.selectedIndex >= 0) nomeEscolhido = (sel.options[sel.selectedIndex]?.textContent || 'Sem Cooperado').trim();
-
-        try{
-          const url = '/atribuir_cooperado/' + idEntrega;
-          const fd  = new FormData();
-          fd.append('cooperado_id', coopId);
-          fd.append('notificar_painel', '1');
-
-          fetch(url,{ method:'POST', body:fd, headers:{'X-Requested-With':'fetch'} })
-            .then(()=>{
-              if(coopId) removerDaFilaPorNome(nomeEscolhido);
-              showToast('<strong>Cooperado atualizado.</strong>');
-            })
-            .catch(()=> showToast('<strong>Não foi possível atualizar o cooperado agora.</strong>'));
-        }catch(e){
-          showToast('<strong>Não foi possível atualizar o cooperado agora.</strong>');
-        }
-
-        const span = document.createElement('span');
-        span.className = 'coop-editable';
-        span.dataset.id = idEntrega;
-        span.dataset.cooperadoId = sel.value;
-        span.title = 'Clique para trocar o cooperado';
-
-        let nome = 'Sem Cooperado';
-        if(sel.value){
-          const found = (window.COOPERADOS || []).find(x => String(x.id)===String(sel.value));
-          if(found?.nome) nome = found.nome;
-        }
-        span.textContent = nome;
-        sel.parentNode.replaceChild(span, sel);
-
-        atualizarBadgeAbertas();
+    function renderSocorros(items){
+      if(!box || !countEl || !listEl) return;
+      const count = items.length;
+      if(count <= 0){
+        box.style.display = 'none';
+        listEl.innerHTML = '';
+        countEl.textContent = '0';
+        return;
       }
+      box.style.display = 'block';
+      countEl.textContent = String(count);
 
-      sel.addEventListener('change', salvar);
-      sel.addEventListener('blur', ()=> salvar(), { once:true });
-    });
-
-    async function salvarValorEntrega(idEntrega, novo){
-      try{
-        const r1 = await fetch(`/api/entregas/${idEntrega}/valor`, {
-          method:'PATCH',
-          headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
-          body: JSON.stringify({ valor: novo })
-        });
-        if(r1.ok) return true;
-      }catch(e){}
-
-      try{
-        const fd = new FormData();
-        fd.append('valor', novo);
-        fd.append('valor_servico', novo);
-        fd.append('atualizar_valor', '1');
-        fd.append('notificar_painel', '1');
-
-        const r2 = await fetch(`/editar_entrega/${idEntrega}`, {
-          method:'POST',
-          body: fd,
-          headers:{'X-Requested-With':'fetch'}
-        });
-        if(r2.ok) return true;
-      }catch(e){}
-
-      return false;
+      listEl.innerHTML = items.map(s => {
+        const cid = s.id;
+        const nome = s.cooperado_nome || 'Cooperado';
+        const msg = s.mensagem || '';
+        const mom = s.momento || '';
+        return `
+          <div class="socorro-item" data-id="${cid}">
+            <div class="socorro-title">
+              <span><b>${nome}</b> · ${mom}</span>
+              <button class="socorro-x" title="Marcar como visto" data-id="${cid}">✕</button>
+            </div>
+            <div class="socorro-msg">${msg}</div>
+          </div>
+        `;
+      }).join('');
     }
 
-    document.addEventListener('click', (ev)=>{
-      const el = ev.target.closest?.('.value-editable');
-      if(!el) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const idEntrega = el.dataset?.id || '';
-      if(!idEntrega) return;
-
-      let valorAtual = el.dataset.valor || '';
-      if(!valorAtual) valorAtual = String(parseNumberFromBRL(el.textContent || '')).toFixed(2);
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'value-input';
-      input.inputMode = 'decimal';
-      input.value = String(valorAtual).replace('.', ',');
-
-      el.parentNode.replaceChild(input, el);
-      input.focus();
-      input.select();
-
-      async function finalizar(shouldSave){
-        const raw = (input.value || '').trim();
-        let num = parseNumberFromBRL(raw);
-        if(!Number.isFinite(num) || num <= 0) num = parseNumberFromBRL(valorAtual);
-        const novo = num.toFixed(2);
-
-        const span = document.createElement('span');
-        span.className = 'value-editable';
-        span.dataset.id = idEntrega;
-        span.dataset.valor = novo;
-        span.title = 'Clique para alterar o valor';
-        span.textContent = formatBRLFromNumberLike(novo);
-
-        input.parentNode.replaceChild(span, input);
-        if(!shouldSave) return;
-
-        const ok = await salvarValorEntrega(idEntrega, novo);
-        if(ok){
-          showToast('<strong>Valor atualizado.</strong>');
-        }else{
-          window.location.href = `/editar_entrega/${idEntrega}`;
-        }
-      }
-
-      input.addEventListener('keydown', (e)=>{
-        if(e.key === 'Enter'){ e.preventDefault(); finalizar(true); }
-        if(e.key === 'Escape'){ e.preventDefault(); finalizar(false); }
-      });
-      input.addEventListener('blur', ()=> finalizar(true), { once:true });
-    });
-
-    window.addEventListener('DOMContentLoaded', ()=>{
-      const btnMenu   = document.getElementById('btnMenu');
-      const sidePanel = document.getElementById('sidePanel');
-      if (!btnMenu || !sidePanel) return;
-
-      btnMenu.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        const isOpen = sidePanel.classList.toggle('open');
-        if(isOpen) btnMenu.classList.add('open'); else btnMenu.classList.remove('open');
-      });
-
-      document.addEventListener('click', (ev)=>{
-        if (!sidePanel.classList.contains('open')) return;
-        if (ev.target === btnMenu || btnMenu.contains(ev.target)) return;
-        if (sidePanel.contains(ev.target)) return;
-        sidePanel.classList.remove('open');
-        btnMenu.classList.remove('open');
-      });
-    });
-
-    (function(){
-      const selCoop    = document.getElementById('cooperado-espera');
-      const inpNome    = document.getElementById('nome-espera');
-      const formEspera = document.getElementById('form-espera');
-
-      if (selCoop && inpNome){
-        selCoop.addEventListener('change', ()=>{
-          const opt  = selCoop.options[selCoop.selectedIndex];
-          const nome = opt ? (opt.text || '') : '';
-          if (!inpNome.value) inpNome.value = nome;
-        });
-      }
-      if (formEspera && selCoop && inpNome){
-        formEspera.addEventListener('submit', ()=>{
-          if (!inpNome.value) {
-            const opt  = selCoop.options[selCoop.selectedIndex];
-            const nome = opt ? (opt.text || '') : '';
-            inpNome.value = nome;
-          }
-        });
-      }
-    })();
-
-    (function(){
-      const ulFila = document.getElementById('espera-lista');
-      let dragEl = null;
-
-      function renumerar(){
-        const nums = ulFila ? ulFila.querySelectorAll('.espera-chip-num') : [];
-        nums.forEach((el,i)=> el.textContent = i+1);
-      }
-      function salvarOrdem(){
-        if(!ulFila) return;
-        const ids = [].map.call(ulFila.querySelectorAll('.espera-chip'), li => li.dataset.id);
-        fetch('/lista_espera/reordenar',{
+    async function marcarLido(id){
+      try{
+        const resp = await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ordem:ids})
-        }).catch(()=>{});
-      }
-
-      if(ulFila){
-        ulFila.addEventListener('dragstart', (e)=>{
-          const li = e.target.closest('.espera-chip');
-          if(!li) return;
-          dragEl = li;
-          li.style.opacity = 0.6;
+          body: JSON.stringify({ id })
         });
-        ulFila.addEventListener('dragend', (e)=>{
-          const li = e.target.closest('.espera-chip');
-          if(!li) return;
-          li.style.opacity = 1;
-          dragEl = null;
-          salvarOrdem();
-        });
-        ulFila.addEventListener('dragover', (e)=>{
-          e.preventDefault();
-          const li = e.target.closest('.espera-chip');
-          if(!li || li === dragEl) return;
-          const r = li.getBoundingClientRect();
-          const after = (e.clientY - r.top) > (r.height / 2);
-          if(after) li.after(dragEl); else li.before(dragEl);
-          renumerar();
-        });
-      }
-    })();
-
-    function atualizarOuInserirLinhaEntrega(dados){
-      if (!dados?.id || !dados?.linha_html) return;
-      const tbody = document.querySelector('.tabela tbody');
-      if (!tbody) return;
-
-      const temp = document.createElement('tbody');
-      temp.innerHTML = dados.linha_html.trim();
-      const novaTr = temp.querySelector('tr');
-      if (!novaTr) return;
-
-      const trExistente = tbody.querySelector('tr[data-id="' + dados.id + '"]');
-      if (trExistente) tbody.replaceChild(novaTr, trExistente);
-      else tbody.prepend(novaTr);
-
-      atualizarBadgeAbertas();
-    }
-    function removerLinhaEntrega(id){
-      const tbody = document.querySelector('.tabela tbody');
-      if (!tbody || !id) return;
-      const tr = tbody.querySelector('tr[data-id="' + id + '"]');
-      if (tr) tr.remove();
-      atualizarBadgeAbertas();
-    }
-    function atualizarFilaEsperaTempoReal(htmlLista){
-      const ulFila = document.getElementById('espera-lista');
-      if (!ulFila || !htmlLista) return;
-      ulFila.innerHTML = htmlLista;
+        return resp.ok;
+      }catch(e){ return false; }
     }
 
-    if (typeof socket !== 'undefined') {
-      socket.on('entrega_criada', atualizarOuInserirLinhaEntrega);
-      socket.on('entrega_atualizada', atualizarOuInserirLinhaEntrega);
-      socket.on('entrega_excluida', (dados)=> dados?.id && removerLinhaEntrega(dados.id));
-      socket.on('fila_espera_atualizada', (dados)=> dados?.html_lista && atualizarFilaEsperaTempoReal(dados.html_lista));
-    }
-  </script>
-
-  <!-- CUPOM / MAPA TELA CHEIA -->
-  <script>
-    function imprimirCupom(idEntrega, botao) {
-      var tr = botao.closest ? botao.closest('tr') : null;
-      function get(idx){
-        if(!tr || !tr.children || !tr.children[idx]) return '-';
-        var txt = (tr.children[idx].innerText || '').trim();
-        return txt || '-';
-      }
-
-      var dataDiaBruto = (get(5) || '-').replace(/\s+/g,' ').trim();
-      var matchData = dataDiaBruto.match(/\d{2}\/\d{2}\/\d{4}/);
-      var dataSo = matchData ? matchData[0] : '-';
-
-      var rawId = get(0);
-      var numMatch = rawId.match(/\d+/);
-      var numId = numMatch ? numMatch[0] : rawId;
-
-      var cooperadoCupom = '-';
-      if (botao && botao.dataset && botao.dataset.cooperado){
-        cooperadoCupom = botao.dataset.cooperado;
-      } else {
-        cooperadoCupom = get(8) || '-';
-      }
-
-      var dados = {
-        id: numId,
-        idPad: String(numId).padStart(6,'0'),
-        cliente: get(1),
-        bairro: get(2),
-        endereco: get(3),
-        valor: get(4).replace(/^R\$\s*/,'').trim(),
-        data: dataSo,
-        horaPedido: get(6),
-        cooperado: cooperadoCupom,
-        formaPgto: get(9),
-        recebidoPor: get(12)
-      };
-
-      var agora = new Date();
-      var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
-      var baseHref = "{{ request.host_url }}";
-      var cacheBust = Date.now();
-
-      var html = ''
-+'<!DOCTYPE html>'
-+'<html lang="pt-br">'
-+'<head>'
-+'  <meta charset="utf-8">'
-+'  <title>Cupom #'+dados.id+'</title>'
-+'  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
-+'  <base href="'+baseHref+'">'
-+'  <style>'
-+'    @page { size: 80mm 110mm; margin: 3mm; }'
-+'    *{box-sizing:border-box}'
-+'    body{font-family: Arial, "Segoe UI", Roboto, system-ui, sans-serif;margin:0;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
-+'    .cupom{width:100%; max-width:72mm; margin:0 auto; padding:0}'
-+'    .center{text-align:center}'
-+'    .line{display:flex; justify-content:space-between; gap:8px; font-size:12.5px; margin:2px 0}'
-+'    .big{font-weight:900; font-size:18px}'
-+'    hr{border:none; border-top:1px dotted #000; margin:8px 0}'
-+'    .logo{width:62mm; max-width:100%; height:auto; object-fit:contain; margin:2px auto 6px; display:block}'
-+'    .footer{font-size:11px; text-align:center; margin-top:6px}'
-+'    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}'
-+'    .tiny{font-size:10.5px}'
-+'    .sign{ text-align:center; margin-top:8px; }'
-+'    .sign-line{ width:48mm; height:0; border-top:1px solid #000; margin:10px auto 2px; }'
-+'    .actions{display:flex; gap:10px; justify-content:center; padding:12px 0 16px}'
-+'    .btn{padding:10px 18px; border-radius:10px; font-weight:800; cursor:pointer}'
-+'    .btn-print{border:1px solid #000; background:#000; color:#fff}'
-+'    .btn-close{border:1px solid #c3c8d5; background:#fff; color:#000}'
-+'    .wrap{min-height:100vh; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:10px 8px 18px;}'
-+'    @media print { .actions{display:none} body{background:#fff} }'
-+'  </style>'
-+'</head>'
-+'<body>'
-+'  <div class="wrap">'
-+'    <div class="cupom">'
-+'      <img src="'+logoUrl+'?v='+cacheBust+'" alt="Logo Coopex" class="logo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/200x60?text=COOPEX\';">'
-+'      <div class="center tiny">'
-+'        CNPJ: 05.289.938/0001-97<br>'
-+'        Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN — CEP: 59075-140<br>'
-+'        Fone/WhatsApp: (84) 98111-0706'
-+'      </div>'
-+'      <hr>'
-+'      <div class="center" style="font-weight:800">CUPOM NÃO FISCAL Nº: <span class="mono">'+dados.idPad+'</span></div>'
-+'      <div class="line"><span>Data:</span><span class="mono">'+dados.data+'</span></div>'
-+'      <div class="line"><span>Hora:</span><span class="mono">'+dados.horaPedido+'</span></div>'
-+'      <div class="line"><span>Cliente:</span><span class="mono">'+dados.cliente+'</span></div>'
-+'      <div class="line"><span>Endereço:</span><span class="mono">'+dados.endereco+'</span></div>'
-+'      <div class="line"><span>Bairro:</span><span class="mono">'+dados.bairro+'</span></div>'
-+'      <div class="line"><span>Cooperado:</span><span class="mono">'+dados.cooperado+'</span></div>'
-+'      <div class="line"><span>Forma Pgto:</span><span class="mono">'+dados.formaPgto+'</span></div>'
-+'      <hr>'
-+'      <div class="line"><span>Valor do serviço:</span><span class="mono">'+dados.valor+'</span></div>'
-+'      <div class="line big"><span>TOTAL:</span><span class="mono">'+dados.valor+'</span></div>'
-+'      <hr>'
-+'      <div class="sign"><div class="sign-line"></div><div class="tiny">Supervisor</div></div>'
-+'      <hr>'
-+'      <div class="footer">'
-+'        Emitido em <span class="mono">'+agora.toLocaleDateString("pt-BR")+'</span> às '
-+'        <span class="mono">'+agora.toLocaleTimeString("pt-BR")+'</span><br>'
-+'        Recebido por: <span class="mono">'+dados.recebidoPor+'</span>'
-+'      </div>'
-+'    </div>'
-+'    <div class="actions">'
-+'      <button class="btn btn-print" onclick="window.print()">Imprimir</button>'
-+'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
-+'    </div>'
-+'  </div>'
-+'
-  <!-- SOCORRO (áudio) -->
-  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
-  <script>
-    (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
-        try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
-      }
-      check();
-      setInterval(check, 4000);
-    })();
-  </script>
-
-</body>'
-+'</html>';
-
-      try{
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var w = window.open(url, '_blank');
-        if(w && !w.closed){
-          setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 15000);
-          return;
-        }
-        try{ URL.revokeObjectURL(url); }catch(e){}
-      }catch(e){}
-
-      var win = null;
-      try { win = window.open('about:blank', '_blank', 'width=480,height=800'); } catch(e){}
-      if (win && !win.closed) {
-        try { win.opener = null; } catch(e){}
-        try{
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-          return;
-        }catch(e){}
-      }
-
-      showToast('<strong>Pop-up bloqueado.</strong> Libere pop-ups para imprimir.');
-    }
-
-    function abrirMapaTelaCheia() {
-      try {
-        var url = "{{ url_for('mapa_motoboys') }}";
-        var a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch (e) {
-        console.error(e);
-        showToast('<strong>Não foi possível abrir o mapa agora.</strong>');
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', function(){
-      var btnFull = document.getElementById('btnFullMap');
-      if (btnFull) btnFull.addEventListener('click', abrirMapaTelaCheia);
+    listEl && listEl.addEventListener('click', async function(ev){
+      const btn = ev.target.closest('.socorro-x');
+      if(!btn) return;
+      const id = btn.getAttribute('data-id');
+      await marcarLido(id);
+      // força refresh
+      await refreshSocorro();
     });
-  </script>
+
+    async function refreshSocorro(){
+      try{
+        const resp = await fetch('{{ url_for("admin_novo_socorro") }}', { cache:'no-store' });
+        if(!resp.ok) return;
+        const data = await resp.json();
+        const items = (data && data.socorros) ? data.socorros : [];
+        // toca som somente para IDs novos
+        let tocou = false;
+        items.forEach(s=>{
+          if(!seen.has(String(s.id))){
+            seen.add(String(s.id));
+            tocou = true;
+          }
+        });
+        if(tocou){
+          try{ socorroAudio.currentTime = 0; socorroAudio.play(); }catch(e){}
+        }
+        renderSocorros(items);
+      }catch(e){}
+    }
+
+    refreshSocorro();
+    setInterval(refreshSocorro, 2500);
+  });
+</script>
 
   <!-- Leaflet -->
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
-
-  <!-- MarkerCluster -->
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
-
-  <script>
+<script>
     // ===== MAPA (agrupamento sem modal + sem "gps ocioso" + sem reagrupar quando aproximar) =====
     window.addEventListener('DOMContentLoaded', function(){
       var mapEl = document.getElementById('map-coopex');
@@ -1800,7 +1461,15 @@
       // grupo com cluster:
       // - NÃO abre modal ao clicar
       // - DESLIGA agrupamento a partir do zoom 15 (assim, ao aproximar, não volta a reagrupar sozinho)
-      var cluster = L.layerGroup();
+      var cluster = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 55,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 15,
+        iconCreateFunction: function (cl) {
+          var children = cl.getAllChildMarkers();
           var hasOnline = false;
           for (var i=0;i<children.length;i++){
             var st = children[i].__status || 'offline';
@@ -1961,7 +1630,6 @@
             marker.__data = m;
 
             marker.bindPopup(popupHtml(m, st), { closeButton:true, autoPan:true });
-            marker.bindTooltip(popupHtml(m, st), {direction:'top', sticky:true, opacity:0.95});
 
             cluster.addLayer(marker);
             motoboyMarkers[m.id] = marker;
@@ -2023,29 +1691,5 @@
       setInterval(atualizarDoServidor, 5000);
     });
   </script>
-
-  <!-- SOCORRO (áudio) -->
-  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
-  <script>
-    (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
-        try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
-      }
-      check();
-      setInterval(check, 4000);
-    })();
-  </script>
-
 </body>
 </html>

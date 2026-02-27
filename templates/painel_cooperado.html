@@ -234,42 +234,44 @@
   <div class="wrap">
     <!-- ABAS -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="tab-chamadas">Chamadas</button>
+      <button class="tab-btn active" data-tab="tab-ganhos">Ganhos</button>
       <button class="tab-btn" data-tab="tab-minhas">Minhas entregas</button>
       <button class="tab-btn" data-tab="tab-ajuda">Ajuda</button>
     </nav>
 
-    <!-- ABA 1: CHAMADAS (ACEITAR / RECUSAR) -->
-    <section id="tab-chamadas" class="tab-panel active" aria-label="Chamadas disponíveis">
-      <section class="card-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Bairro</th>
-              <th>Valor</th>
-              <th>Distância</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for c in chamadas %}
-            <tr data-id="{{ c.id }}">
-              <td data-label="Cliente">{{ c.cliente }}</td>
-              <td data-label="Bairro">{{ c.bairro or '-' }}</td>
-              <td data-label="Valor">R$ {{ '%.2f'|format(c.valor) }}</td>
-              <td data-label="Distância">{{ c.distancia or '-' }}</td>
-              <td data-label="Ações">
-                <button type="button" class="btn-aceitar" onclick="aceitarEntrega({{ c.id }})">Aceitar</button>
-                <button type="button" class="btn-recusar" onclick="recusarEntrega({{ c.id }})">Recusar</button>
-              </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5" style="text-align:center">Nenhuma chamada disponível.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <!-- ABA 1: GANHOS -->
+    <section id="tab-ganhos" class="tab-panel active" aria-label="Ganhos">
+      <h2>Ganhos</h2>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 12px">
+        <div style="font-weight:800;color:var(--muted)">Selecionar mês:</div>
+        <select id="sel-ganhos-mes" style="border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-weight:800">
+          {% for m in meses_ano %}
+            <option value="{{ m.num }}" {% if m.num==mes_atual %}selected{% endif %}>{{ m.nome }} / {{ ano_atual }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Totais do mês -->
+      <section class="stats" aria-label="Totais do mês">
+        <div class="stat stat--pago"><h4>Pago (mês)</h4><strong id="g-mes-pago">R$ 0,00</strong></div>
+        <div class="stat stat--pendente"><h4>Pendente (mês)</h4><strong id="g-mes-pendente">R$ 0,00</strong></div>
+        <div class="stat stat--total"><h4>Total (mês)</h4><strong id="g-mes-total">R$ 0,00</strong></div>
       </section>
+
+      <div class="divider"></div>
+
+      <!-- Totais do ano -->
+      <h3 style="margin:6px 0 8px">Ano {{ ano_atual }}</h3>
+      <section class="stats" aria-label="Totais do ano">
+        <div class="stat stat--pago"><h4>Pago (ano)</h4><strong id="g-ano-pago">R$ 0,00</strong></div>
+        <div class="stat stat--pendente"><h4>Pendente (ano)</h4><strong id="g-ano-pendente">R$ 0,00</strong></div>
+        <div class="stat stat--total"><h4>Total (ano)</h4><strong id="g-ano-total">R$ 0,00</strong></div>
+      </section>
+
+      <p class="small" style="margin-top:10px;opacity:.85">
+        * Os valores consideram o mês/ano de <strong>Data do pedido</strong>. Foto de comprovante (quando houver) fica armazenada por 7 dias.
+      </p>
     </section>
 
     <!-- ABA 2: MINHAS ENTREGAS -->
@@ -415,6 +417,11 @@
       <h3 id="rcb-title">Confirmar recebimento</h3>
       <div class="row">
         <input type="text" id="rcb-input-global" placeholder="Recebido por (ex.: porteiro fulano de tal)" maxlength="100" inputmode="text" autocomplete="name" />
+      </div>
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="file" id="rcb-foto-global" accept="image/*" capture="environment" style="display:none" />
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('rcb-foto-global').click()">Tirar foto (opcional)</button>
+        <span class="small" id="rcb-foto-status">Nenhuma foto selecionada</span>
       </div>
       <div class="hint">Pressione <strong>Enter</strong> para confirmar ou <strong>Esc</strong> para cancelar.</div>
       <div class="actions">
@@ -579,6 +586,15 @@
       if(!ov) return;
       ov.classList.remove('open');
       document.body.style.overflow='';
+      // limpa campos do modal
+      try{
+        const inp=document.getElementById('rcb-input-global');
+        if(inp) inp.value='';
+        const f=document.getElementById('rcb-foto-global');
+        if(f) f.value='';
+        const st=document.getElementById('rcb-foto-status');
+        if(st) st.textContent='Nenhuma foto selecionada';
+      }catch(e){}
       setTimeout(preserveScroll,0);
     }
 
@@ -586,6 +602,14 @@
       const btnCancel=document.getElementById('rcb-cancel');
       const overlay=document.getElementById('rcb-overlay');
       const btnOk=document.getElementById('rcb-ok');
+      const fotoEl=document.getElementById('rcb-foto-global');
+      const fotoSt=document.getElementById('rcb-foto-status');
+      if(fotoEl){
+        fotoEl.addEventListener('change', ()=>{
+          const f=(fotoEl.files && fotoEl.files[0]) ? fotoEl.files[0] : null;
+          if(fotoSt) fotoSt.textContent = f ? ('Foto: '+f.name) : 'Nenhuma foto selecionada';
+        });
+      }
 
       if(btnCancel){
         btnCancel.addEventListener('click', closeRecebidoModal);
@@ -649,16 +673,21 @@
       }
 
       const input=document.getElementById('rcb-input-global');
+      const fileEl=document.getElementById('rcb-foto-global');
       const nome=(input && input.value ? input.value : '').trim();
-      if(!nome){
-        alert('Informe o nome de quem recebeu.');
+      const file = (fileEl && fileEl.files && fileEl.files[0]) ? fileEl.files[0] : null;
+
+      if(!nome && !file){
+        alert('Informe o nome de quem recebeu OU envie uma foto.');
         return;
       }
       try{
+        const fd = new FormData();
+        fd.append('recebido_por', nome);
+        if(file) fd.append('foto', file);
         const resp=await fetch(`{{ url_for('cooperado_marcar_entregue', id=0) }}`.replace('0',id),{
           method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({recebido_por:nome})
+          body: fd
         });
         let data=null;
         try{ data=await resp.json(); }catch{}
@@ -731,7 +760,7 @@
           alert(data.error || 'Falha ao recusar entrega.');
           return;
         }
-        const tr = document.querySelector(`#tab-chamadas tr[data-id="${id}"]`);
+        const tr = document.querySelector(`#tab-ganhos tr[data-id="${id}"]`);
         if(tr) tr.remove();
       }catch(e){
         alert('Erro ao recusar: '+e.message);
@@ -910,8 +939,35 @@
           }
         }else{
           iniciarRastreamento();
+      if(selGanhosMes) carregarGanhos(selGanhosMes.value);
         }
       });
+    }
+
+
+    // =============================
+    // GANHOS (aba nova)
+    // =============================
+    const selGanhosMes = document.getElementById('sel-ganhos-mes');
+    const fmtBRL = (v)=> (new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'})).format(Number(v||0));
+
+    async function carregarGanhos(mes){
+      try{
+        const r = await fetch(`/cooperado/api/ganhos?mes=${encodeURIComponent(mes)}&ano={{ ano_atual }}`, {cache:'no-store'});
+        const data = await r.json();
+        if(!data.ok) return;
+        document.getElementById('g-mes-total').textContent = fmtBRL(data.total_mes);
+        document.getElementById('g-mes-pago').textContent = fmtBRL(data.pago_mes);
+        document.getElementById('g-mes-pendente').textContent = fmtBRL(data.pendente_mes);
+
+        document.getElementById('g-ano-total').textContent = fmtBRL(data.total_ano);
+        document.getElementById('g-ano-pago').textContent = fmtBRL(data.pago_ano);
+        document.getElementById('g-ano-pendente').textContent = fmtBRL(data.pendente_ano);
+      }catch(e){}
+    }
+
+    if(selGanhosMes){
+      selGanhosMes.addEventListener('change', ()=>carregarGanhos(selGanhosMes.value));
     }
 
     // =============================
@@ -922,8 +978,8 @@
       recalcTotals();
       ensureEmpty();
       setTimeout(preserveScroll,0);
-      // se quiser já iniciar o rastreamento automaticamente:
-      // iniciarRastreamento();
+      // rastreamento automático ao logar (sem avisos)
+      iniciarRastreamento();
     });
   </script>
 </body>

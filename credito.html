@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crédito de Clientes — Supervisão | Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --royal:#0033cc; --royal-2:#2750ff;
+      --ink:#0a1b3f; --muted:#cfe0ff; --bg:#f6f8ff; --card:#ffffff;
+      --line:#e3e9ff; --line-dark:#cfd9ff; --good:#10b981; --bad:#ef4444;
+      --r:14px; --shadow:0 8px 30px rgba(0,30,130,.08); --shadow-2:0 10px 40px rgba(0,30,130,.12);
+      --primary-border:#2f4de6;
+      --pane:#0c2aa8; --pane-2:#0a238f; --pane-header:#082070; --pane-line:rgba(255,255,255,.14); --pane-text:#ffffff; --pane-text-soft:#e7efff;
+    }
+    body.dark{ --bg:#0b0f17; --card:#0f1623; --ink:#e7edf9; --line:#1d2636; --line-dark:#2b3b59; --muted:#2b3b59; }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+
+    header{position:sticky;top:0;z-index:100;background:linear-gradient(90deg,var(--royal) 0%, #2b54ff 60%, #7ea0ff 130%);color:#fff;box-shadow:var(--shadow-2)}
+    .topbar{padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900}
+    .brand img{width:36px;height:36px;border-radius:10px;background:#fff;border:2px solid #eaf0ff;object-fit:contain}
+    .brand span{font-size:1.02rem;text-shadow:0 2px 18px rgba(0,0,0,.2)}
+    .spacer{flex:1}
+    .theme-toggle{color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:12px;padding:9px 14px;font-weight:800;cursor:pointer}
+    .logout{color:#fff;background:#c1121f;border:none;border-radius:24px;padding:9px 16px;font-weight:800;text-decoration:none}
+
+    .wrap{max-width:1150px;margin:16px auto;padding:0 14px 24px;display:grid;grid-template-columns:1fr 380px;gap:14px}
+    @media (max-width:1100px){ .wrap{grid-template-columns:1fr} }
+
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+    .card .body{padding:14px}
+    .card h2,.card h3{margin:0 0 10px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(90deg,var(--royal) 0%, var(--royal-2) 100%);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-weight:800;text-decoration:none;box-shadow:0 6px 16px rgba(0,50,200,.18);cursor:pointer}
+    .btn.alt{background:#fff;color:#2347c7;border:1.5px solid var(--primary-border)}
+    .btn.block{width:100%}
+    label{font-size:.86rem;color:#28409f;font-weight:800}
+    body.dark label{color:#b9ccff}
+    select,input[type="date"],input[type="text"],input[type="number"],textarea{
+      width:100%;padding:10px;border-radius:12px;border:1.6px solid var(--primary-border);background:#fff;color:var(--ink);font-weight:700
+    }
+    body.dark select, body.dark input, body.dark textarea{background:#0b1a3a;color:#e7edf9;border-color:#2f4de6}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:720px){ .grid-2{grid-template-columns:1fr} }
+    .muted{color:#5771d6;font-weight:700}
+    .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line)}
+    table{width:100%;border-collapse:collapse;font-size:13.8px}
+    thead th{position:sticky;top:0;background:#031a66;color:#fff;padding:8px;border-bottom:1px solid var(--line)}
+    tbody td{padding:8px;border-bottom:1px solid var(--line)}
+    tbody tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 8px;font-size:.82rem;font-weight:900;border:1px solid}
+    .badge.good{background:#eafff6;border-color:#bff3de;color:#0f8a64}
+    .badge.neu{background:#edf3ff;border-color:#cfdbff;color:#2347c7}
+    .money{font-weight:900}
+    .help{font-size:.86rem;opacity:.95}
+    .totais{display:flex;gap:8px;flex-wrap:wrap}
+    .totais .pill{background:#edf3ff;border:1px solid #cfdbff;color:#2347c7;border-radius:999px;padding:6px 10px;font-weight:900}
+    .hint{font-size:.8rem;color:#5b6ea8}
+
+    .sticky-actions{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(180deg, rgba(246,248,255,0), var(--bg));display:flex;gap:10px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='logo_kratos.png') }}" alt="Logo" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x36?text=LOGO'">
+        <span>Crédito de Clientes — Supervisão</span>
+      </div>
+      <div class="spacer"></div>
+      <button id="btnTheme" class="theme-toggle" type="button">Modo escuro</button>
+      <a class="logout" href="{{ url_for('logout') }}">Sair</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- LADO ESQUERDO: FORM + HISTÓRICO -->
+    <section class="card">
+      <div class="body">
+        <h2>Registrar Crédito</h2>
+        <form class="grid-2" action="{{ url_for('creditos_cadastrar') }}" method="POST" id="form-credito">
+          <div class="row" style="flex-direction:column;flex:1 1 280px">
+            <label for="cliente_id">Cliente</label>
+            <select id="cliente_id" name="cliente_id" required>
+              <option value="" disabled selected>Selecione…</option>
+              {% for cli in clientes %}
+                <option value="{{ cli.id }}" {% if filtros and filtros.cliente_id==cli.id %}selected{% endif %}>{{ cli.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="row" style="flex-direction:column">
+            <label for="valor_bruto">Valor do crédito (R$)</label>
+            <input type="number" id="valor_bruto" name="valor_bruto" step="0.01" min="0" placeholder="0,00" required>
+          </div>
+
+          <div class="row" style="flex-direction:column">
+            <label for="desconto_tipo">Desconto</label>
+            <select id="desconto_tipo" name="desconto_tipo">
+              <option value="nenhum">Sem desconto</option>
+              <option value="percentual">Percentual (%)</option>
+              <option value="real">Valor (R$)</option>
+            </select>
+          </div>
+
+          <div class="row" style="flex-direction:column">
+            <label for="desconto_valor">Valor do desconto</label>
+            <input type="number" id="desconto_valor" name="desconto_valor" step="0.01" min="0" placeholder="0,00" value="0">
+            <span class="hint" id="hint-desconto">Informe % quando for percentual.</span>
+          </div>
+
+          <div class="row" style="flex-direction:column">
+            <label for="motivo">Observação/Motivo (opcional)</label>
+            <input type="text" id="motivo" name="motivo" maxlength="180" placeholder="Ex.: Bônus fidelidade, ajuste, etc.">
+          </div>
+
+          <div class="row" style="flex-direction:column">
+            <label for="criado_em">Data</label>
+            <input type="date" id="criado_em" name="criado_em" value="{{ to_brasilia(now()).strftime('%Y-%m-%d') }}">
+          </div>
+
+          <div class="row" style="align-items:flex-end">
+            <div>
+              <div class="muted">Valor final do crédito</div>
+              <div class="money" id="valor_final_view">R$ 0,00</div>
+            </div>
+          </div>
+
+          <input type="hidden" name="valor_final" id="valor_final_hidden" value="0.00">
+
+          <div class="sticky-actions">
+            <button class="btn" type="submit">Salvar crédito</button>
+            <a class="btn alt" href="{{ url_for('creditos') }}">Limpar</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="body" style="border-top:1px solid var(--line)">
+        <h3>Histórico de Créditos</h3>
+
+        <form class="row" method="GET" action="{{ url_for('creditos') }}" style="margin-bottom:10px">
+          <div style="display:flex;flex-direction:column;min-width:220px">
+            <label for="f_cliente">Cliente</label>
+            <select id="f_cliente" name="cliente_id">
+              <option value="">Todos</option>
+              {% for cli in clientes %}
+                <option value="{{ cli.id }}" {% if filtros and filtros.cliente_id and filtros.cliente_id|string==cli.id|string %}selected{% endif %}>{{ cli.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <label for="f_de">De</label>
+            <input type="date" id="f_de" name="data_inicio" value="{{ filtros.data_inicio or '' }}">
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <label for="f_ate">Até</label>
+            <input type="date" id="f_ate" name="data_fim" value="{{ filtros.data_fim or '' }}">
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <button class="btn" type="submit">Filtrar</button>
+            <a class="btn alt" href="{{ url_for('creditos_exportar', cliente_id=request.args.get('cliente_id',''), data_inicio=request.args.get('data_inicio',''), data_fim=request.args.get('data_fim','')) }}">Exportar</a>
+          </div>
+        </form>
+
+        <div class="totais" id="totaisBar" style="margin:8px 0 12px"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Valor bruto</th>
+                <th>Desconto</th>
+                <th>Valor final</th>
+                <th>Saldo (antes → depois)</th>
+                <th>Motivo</th>
+                <th>Criado em</th>
+                <th>Por</th>
+                <th>Atribuições</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="hist-body">
+              {% for c in creditos %}
+              <tr>
+                <td>#{{ c.id }}</td>
+                <td>{{ c.cliente.nome }}</td>
+                <td>R$ {{ '%.2f'|format(c.valor_bruto) | replace('.', ',') }}</td>
+                <td>
+                  {% if c.desconto_tipo == 'percentual' %}
+                    {{ '%.2f'|format(c.desconto_valor) | replace('.', ',') }}%
+                  {% elif c.desconto_tipo == 'real' %}
+                    R$ {{ '%.2f'|format(c.desconto_valor) | replace('.', ',') }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td><strong>R$ {{ '%.2f'|format(c.valor_final) | replace('.', ',') }}</strong></td>
+                <td>R$ {{ '%.2f'|format(c.saldo_antes) | replace('.', ',') }} → <strong>R$ {{ '%.2f'|format(c.saldo_depois) | replace('.', ',') }}</strong></td>
+                <td title="{{ c.motivo or '' }}">{{ c.motivo or '—' }}</td>
+                <td>{{ to_brasilia(c.criado_em).strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>{{ c.criado_por or '-' }}</td>
+                <td>
+                  <span class="badge neu" title="Quantidade de usos/atribuições">🔗 {{ c.atribuicoes_count or 0 }}</span>
+                </td>
+                <td>
+                  <a class="btn alt" href="{{ url_for('creditos_atribuir', credito_id=c.id) }}">Atribuir</a>
+                </td>
+              </tr>
+              {% endfor %}
+              {% if creditos|length == 0 %}
+                <tr><td colspan="11" style="text-align:center;opacity:.7;padding:16px">Nenhum crédito encontrado.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- LADO DIREITO: Ajuda/Resumo -->
+    <aside class="card">
+      <div class="body">
+        <h3>Como funciona</h3>
+        <p class="help">
+          • Preencha o valor do crédito.<br>
+          • Se quiser aplicar desconto, escolha o tipo (% ou R$) e informe o valor.<br>
+          • O <strong>valor final</strong> é calculado automaticamente e será somado ao saldo do cliente.<br>
+          • As atribuições acontecem quando o crédito é usado para pagar entregas/lançamentos.
+        </p>
+        <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
+        <h3>Simulador</h3>
+        <div class="row" style="flex-direction:column">
+          <label>Resultado</label>
+          <div class="money" id="simulador_view">R$ 0,00</div>
+          <div class="hint">O simulador reflete os campos do formulário ao lado.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // tema
+    (function(){
+      try{
+        const saved = localStorage.getItem('coopex_theme') || 'light';
+        if(saved==='dark') document.body.classList.add('dark');
+        const btn = document.getElementById('btnTheme');
+        const sync = ()=> btn.textContent = document.body.classList.contains('dark') ? 'Modo claro' : 'Modo escuro';
+        sync();
+        btn.addEventListener('click', ()=>{
+          document.body.classList.toggle('dark');
+          localStorage.setItem('coopex_theme', document.body.classList.contains('dark')?'dark':'light');
+          sync();
+        });
+      }catch(e){}
+    })();
+
+    const fmtBRL = (v)=> (new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(+v||0));
+
+    const $bruto = document.getElementById('valor_bruto');
+    const $tipo  = document.getElementById('desconto_tipo');
+    const $desc  = document.getElementById('desconto_valor');
+    const $finalV = document.getElementById('valor_final_view');
+    const $finalH = document.getElementById('valor_final_hidden');
+    const $simu = document.getElementById('simulador_view');
+    const $hint = document.getElementById('hint-desconto');
+
+    function calcFinal(){
+      const bruto = Math.max(0, parseFloat($bruto.value||'0'));
+      const tipo  = $tipo.value;
+      const d     = Math.max(0, parseFloat($desc.value||'0'));
+
+      let desconto = 0;
+      if(tipo==='percentual'){ desconto = (bruto * d)/100; $hint.textContent = 'Desconto em percentual (%)'; }
+      else if(tipo==='real'){ desconto = d; $hint.textContent = 'Desconto em reais (R$)'; }
+      else { desconto = 0; $hint.textContent = 'Sem desconto aplicado'; }
+
+      desconto = Math.min(desconto, bruto); // nunca passar de 100%
+      const final = bruto - desconto;
+
+      $finalV.textContent = fmtBRL(final);
+      $finalH.value = final.toFixed(2);
+      $simu.textContent = fmtBRL(final);
+    }
+
+    ['input','change','blur'].forEach(evt=>{
+      $bruto.addEventListener(evt, calcFinal);
+      $tipo.addEventListener(evt, calcFinal);
+      $desc.addEventListener(evt, calcFinal);
+    });
+    calcFinal();
+
+    // barra de totais (opcional pelo DOM)
+    (function(){
+      try{
+        const rows = [...document.querySelectorAll('#hist-body tr')];
+        let totalReg=0, somaBruto=0, somaFinal=0;
+        rows.forEach(tr=>{
+          const tds = tr.querySelectorAll('td');
+          if(!tds.length) return;
+          const brutoTxt = (tds[2]?.innerText || '0').replace(/[^\d,.-]/g,'').replace('.','').replace(',','.');
+          const finalTxt = (tds[4]?.innerText || '0').replace(/[^\d,.-]/g,'').replace('.','').replace(',','.');
+          const bruto = parseFloat(brutoTxt)||0, final = parseFloat(finalTxt)||0;
+          totalReg++; somaBruto += bruto; somaFinal += final;
+        });
+        const bar = document.getElementById('totaisBar');
+        if(bar){
+          bar.innerHTML='';
+          const pill = (t)=>{ const el=document.createElement('span'); el.className='pill'; el.textContent=t; return el; };
+          bar.appendChild(pill(`Registros: ${totalReg}`));
+          bar.appendChild(pill(`Soma bruta: ${fmtBRL(somaBruto)}`));
+          bar.appendChild(pill(`Soma final: ${fmtBRL(somaFinal)}`));
+        }
+      }catch(e){}
+    })();
+  </script>
+</body>
+</html>

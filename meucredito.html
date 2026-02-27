@@ -1,0 +1,1064 @@
+<!-- templates/meu_credito.html (REAL)
+     Requisitos:
+     - Leaflet/OSM via CDN
+     - Endpoints Flask (abaixo)
+     - Tracking real: motoboy atualiza lat/lng no banco
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meu Crédito — Cliente</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin
+  />
+
+  <style>
+    :root{
+      --royal:#003399;
+      --royal-2:#255BFF;
+      --royal-3:#0B2B7A;
+
+      --bg:#F4F7FF;
+      --card:#FFFFFF;
+      --text:#0B1020;
+      --muted:#667085;
+
+      --line:#D6E2FF;
+      --ok:#12B981;
+      --warn:#F59E0B;
+      --bad:#EF4444;
+
+      --shadow: 0 16px 40px rgba(10, 25, 80, .10);
+      --shadow2: 0 10px 28px rgba(10, 25, 80, .08);
+      --radius: 18px;
+      --radius2: 26px;
+
+      --tap: 52px;
+      --max: 1180px;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1000px 520px at 10% -10%, rgba(37, 91, 255, .16), transparent 60%),
+                  radial-gradient(900px 560px at 95% 0%, rgba(0, 51, 153, .14), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button, input, select, textarea{ font-family:inherit; }
+    .wrap{
+      max-width:var(--max);
+      margin:0 auto;
+      padding:18px 16px 92px;
+    }
+
+    .topbar{
+      position:sticky; top:0; z-index:20;
+      background: linear-gradient(180deg, rgba(244,247,255,.92), rgba(244,247,255,.68));
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid rgba(214,226,255,.7);
+    }
+    .topbar-inner{
+      max-width:var(--max);
+      margin:0 auto;
+      padding:14px 16px;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .brand{ display:flex; flex-direction:column; gap:2px; }
+    .brand .title{
+      font-size:15px;font-weight:900;letter-spacing:.2px;color:var(--royal);
+      line-height:1.05;text-transform:uppercase;
+    }
+    .brand .sub{ font-size:12px;color:var(--muted);font-weight:600; }
+
+    .pill{
+      display:flex;align-items:center;gap:10px;
+      padding:10px 12px;border-radius:999px;
+      background:linear-gradient(180deg, #fff, #F7FAFF);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow2);
+      min-height:44px;
+    }
+    .pill .dot{
+      width:10px;height:10px;border-radius:999px;
+      background:var(--warn);
+      box-shadow:0 0 0 6px rgba(245,158,11,.14);
+    }
+    .pill .meta{ display:flex; flex-direction:column; line-height:1.1; }
+    .pill .meta small{ color:var(--muted); font-weight:700; font-size:11px; }
+    .pill .meta strong{ font-size:13px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:16px;
+      margin-top:16px;
+    }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.92));
+      border:1px solid rgba(214,226,255,.9);
+      border-radius:var(--radius2);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card-h{
+      padding:16px 16px 12px;
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+      border-bottom:1px solid rgba(214,226,255,.7);
+      background: radial-gradient(520px 220px at 20% 0%, rgba(37, 91, 255, .12), transparent 60%);
+    }
+    .card-h h2{ margin:0;font-size:15px;font-weight:900;letter-spacing:.2px;color:var(--royal); }
+    .card-h p{ margin:6px 0 0;color:var(--muted);font-size:12px;font-weight:600;line-height:1.3; }
+    .card-b{ padding:14px 16px 16px; }
+
+    .balance{
+      display:flex;gap:12px;align-items:stretch;
+    }
+    .balance .big{
+      flex:1;padding:14px;border-radius:18px;
+      border:1px solid rgba(214,226,255,.9);
+      background: linear-gradient(180deg, #FFFFFF, #F8FBFF);
+      position:relative;overflow:hidden;
+    }
+    .balance .big:before{
+      content:"";position:absolute;inset:-70px -90px auto auto;width:220px;height:220px;
+      background: radial-gradient(circle at 30% 30%, rgba(37, 91, 255, .35), transparent 60%);
+      transform: rotate(20deg);pointer-events:none;
+    }
+    .balance .big small{ display:block;color:var(--muted);font-weight:800;font-size:12px;letter-spacing:.2px; }
+    .balance .big .val{ margin-top:8px;font-size:26px;font-weight:900;color:var(--royal);letter-spacing:-.5px; }
+    .balance .big .hint{ margin-top:8px;font-size:12px;color:var(--muted);font-weight:600; }
+    .balance .actions{ display:flex;flex-direction:column;gap:10px;min-width:150px; }
+
+    .btn{
+      height:var(--tap);border:0;border-radius:16px;padding:0 14px;
+      font-weight:900;letter-spacing:.2px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+      user-select:none;-webkit-tap-highlight-color:transparent;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn-primary{
+      color:#fff;background: linear-gradient(180deg, var(--royal-2), var(--royal));
+      box-shadow: 0 16px 30px rgba(0, 51, 153, .24);
+    }
+    .btn-ghost{
+      color:var(--royal);background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+      border:1px solid var(--line);box-shadow: var(--shadow2);
+    }
+    .btn-danger{
+      color:#fff;background: linear-gradient(180deg, #FF5A5A, #EF4444);
+      box-shadow: 0 16px 30px rgba(239,68,68,.20);
+    }
+
+    .row{ display:flex; gap:10px; }
+    .row > *{ flex:1; }
+
+    .field{ display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+    .field label{ font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.15px; }
+    .input, .select, .textarea{
+      height:46px;border-radius:14px;border:1px solid rgba(214,226,255,.95);
+      background: linear-gradient(180deg, #fff, #F8FBFF);
+      padding:0 12px;outline:none;font-weight:700;color:var(--text);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+      transition: box-shadow .12s ease, border-color .12s ease;
+    }
+    .textarea{ height:84px;padding:10px 12px;resize:none;line-height:1.3;font-weight:650; }
+    .input:focus, .select:focus, .textarea:focus{
+      border-color: rgba(37, 91, 255, .55);
+      box-shadow: 0 0 0 5px rgba(37, 91, 255, .12);
+    }
+
+    .tabs{
+      display:flex;gap:8px;padding:10px;
+      background: rgba(244,247,255,.75);
+      border:1px solid rgba(214,226,255,.85);
+      border-radius: 999px;margin:12px 0 14px;
+    }
+    .tab{
+      flex:1;height:44px;border-radius:999px;border:1px solid transparent;
+      background:transparent;cursor:pointer;font-weight:900;color:var(--royal);
+      letter-spacing:.2px;transition: .12s ease;
+    }
+    .tab.active{
+      background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+      border-color: rgba(214,226,255,.95);
+      box-shadow: var(--shadow2);
+    }
+
+    .statusbar{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 14px;border:1px solid rgba(214,226,255,.92);
+      background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+      border-radius:18px;
+    }
+    .badge{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
+      font-size:12px;font-weight:900;letter-spacing:.2px;
+      border:1px solid rgba(214,226,255,.9);background:#fff;color:var(--royal);white-space:nowrap;
+    }
+    .badge .b-dot{
+      width:9px;height:9px;border-radius:999px;background:var(--warn);
+      box-shadow:0 0 0 6px rgba(245,158,11,.14);
+    }
+    .kv{ display:flex;flex-direction:column;gap:2px;line-height:1.15; }
+    .kv small{ color:var(--muted); font-weight:800; font-size:11px; }
+    .kv strong{ font-size:13px; }
+
+    .list{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+    .item{
+      padding:12px 12px;border-radius:18px;border:1px solid rgba(214,226,255,.92);
+      background: linear-gradient(180deg, #FFFFFF, #F8FBFF);
+      display:flex;gap:10px;align-items:flex-start;
+    }
+    .item .ic{
+      width:38px;height:38px;border-radius:14px;
+      background: radial-gradient(16px 16px at 30% 30%, rgba(37, 91, 255, .35), rgba(37, 91, 255, .12));
+      border:1px solid rgba(214,226,255,.9);
+      display:grid;place-items:center;color:var(--royal);font-weight:900;flex:0 0 auto;
+    }
+    .item .tx{ flex:1; }
+    .item .tx strong{ display:block; font-size:13px; }
+    .item .tx small{ color:var(--muted); font-weight:650; }
+    .item .right{ flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .chip{
+      display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;
+      font-size:11px;font-weight:900;border:1px solid rgba(214,226,255,.9);
+      background:#fff;color:var(--royal);white-space:nowrap;
+    }
+
+    .map-card{ position:relative; min-height: 620px; }
+    #map{ height: 100%; min-height: 620px; width:100%; border-radius: var(--radius2); }
+
+    .overlay{
+      position:absolute;left:14px;right:14px;bottom:14px;z-index:500;
+      pointer-events:none;
+    }
+    .sheet{
+      pointer-events:auto;border-radius: 24px;border:1px solid rgba(214,226,255,.9);
+      background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.92));
+      box-shadow: var(--shadow);overflow:hidden;
+    }
+    .sheet-h{
+      padding:12px 14px 10px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      border-bottom:1px solid rgba(214,226,255,.65);
+    }
+    .grab{ width:54px;height:6px;border-radius:999px;background: rgba(102,112,133,.25);margin:0 auto 8px; }
+    .sheet-h .left{ display:flex;flex-direction:column;gap:2px;line-height:1.15; }
+    .sheet-h .left strong{ font-size:13px; }
+    .sheet-h .left small{ font-size:11px;color:var(--muted);font-weight:700; }
+    .sheet-b{
+      padding:12px 14px 14px;
+      display:grid;grid-template-columns: 1.1fr .9fr;gap:10px;align-items:center;
+    }
+    @media (max-width: 520px){ .sheet-b{ grid-template-columns: 1fr; } }
+    .sheet-b .cta{ display:flex; gap:10px; }
+
+    .bottom-nav{
+      position:fixed;left:0;right:0;bottom:0;z-index:40;
+      background: linear-gradient(180deg, rgba(244,247,255,.62), rgba(244,247,255,.92));
+      backdrop-filter: blur(10px);
+      border-top:1px solid rgba(214,226,255,.8);
+    }
+    .bottom-nav .inner{
+      max-width:var(--max);margin:0 auto;display:flex;gap:10px;padding:10px 12px;
+    }
+    .navbtn{
+      flex:1;height:56px;border-radius:18px;border:1px solid transparent;background:transparent;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+      cursor:pointer;font-weight:900;color:var(--royal);
+    }
+    .navbtn.active{
+      background: linear-gradient(180deg, #fff, #F7FAFF);
+      border-color: rgba(214,226,255,.95);
+      box-shadow: var(--shadow2);
+    }
+    .navbtn .mini{ font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.2px; }
+
+    .hide{ display:none !important; }
+    .hr{ height:1px; background:rgba(214,226,255,.9); margin:12px 0; border-radius:999px; }
+    .note{
+      padding:10px 12px;border-radius:16px;border:1px dashed rgba(37, 91, 255, .35);
+      background: rgba(37, 91, 255, .06);
+      color: rgba(11,43,122,.95);
+      font-size:12px;font-weight:650;line-height:1.35;
+    }
+
+    .leaflet-control-zoom a{
+      border-radius:14px !important;
+      border:1px solid rgba(214,226,255,.9) !important;
+      box-shadow: var(--shadow2) !important;
+      background: linear-gradient(180deg, #fff, #F7FAFF) !important;
+      color: var(--royal) !important;
+    }
+    .leaflet-container{
+      border:1px solid rgba(214,226,255,.85);
+      box-shadow: var(--shadow);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="title">Meu Crédito</div>
+        <div class="sub" id="welcomeSub">Olá, {{ cli.nome }}.</div>
+      </div>
+
+      <div class="pill" title="Status do app">
+        <span class="dot" id="onlineDot"></span>
+        <div class="meta">
+          <small>CONEXÃO</small>
+          <strong id="onlineText">Conectando…</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="grid">
+
+      <!-- COLUNA ESQUERDA -->
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <h2>Sua carteira</h2>
+            <p>Saldo, pedidos e recargas. Use o mapa para rastrear o motoboy em tempo real.</p>
+          </div>
+          <span class="badge" id="badgePedido">
+            <span class="b-dot" id="badgeDot"></span>
+            <span id="badgeTxt">Carregando…</span>
+          </span>
+        </div>
+
+        <div class="card-b">
+          <div class="balance">
+            <div class="big">
+              <small>SALDO DISPONÍVEL</small>
+              <div class="val" id="saldoVal">R$ {{ '%.2f'|format(cli.saldo_atual or 0) | replace('.', ',') }}</div>
+              <div class="hint" id="saldoHint">Você pode comprar crédito ou usar no pagamento do pedido.</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" id="btnIrRecarga" type="button">Comprar crédito</button>
+              <button class="btn btn-ghost" id="btnIrPedido" type="button">Fazer pedido</button>
+            </div>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Seções do cliente">
+            <button class="tab active" data-tab="pedido" type="button">Pedido</button>
+            <button class="tab" data-tab="rastreio" type="button">Rastreio</button>
+            <button class="tab" data-tab="credito" type="button">Crédito</button>
+          </div>
+
+          <!-- TAB: PEDIDO -->
+          <section id="tab-pedido">
+            <div class="statusbar">
+              <div class="kv">
+                <small>ESTIMATIVA</small>
+                <strong id="etaTxt">—</strong>
+              </div>
+              <div class="kv" style="text-align:right;">
+                <small>VALOR</small>
+                <strong id="precoTxt">—</strong>
+              </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <div class="field">
+                <label for="origem">Coleta (endereço)</label>
+                <input class="input" id="origem" placeholder="Ex.: Av. Prudente de Morais, 1000" autocomplete="street-address">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="destino">Entrega (endereço)</label>
+                <input class="input" id="destino" placeholder="Ex.: Rua João Pessoa, 200" autocomplete="street-address">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="tipo">Tipo de pedido</label>
+                <select class="select" id="tipo">
+                  <option value="entrega">Entrega padrão</option>
+                  <option value="coleta_entrega">Coletar e entregar</option>
+                  <option value="entrega_expressa">Entrega expressa</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pagamento">Pagamento</label>
+                <select class="select" id="pagamento">
+                  <option value="credito">Usar crédito</option>
+                  <option value="pix">Pix (na hora)</option>
+                  <option value="cartao">Cartão (na hora)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="obs">Observações</label>
+              <textarea class="textarea" id="obs" placeholder="Ponto de referência, número do apto, instruções para o motoboy..."></textarea>
+            </div>
+
+            <div class="row">
+              <button class="btn btn-ghost" id="btnUsarLocal" type="button">Usar minha localização</button>
+              <button class="btn btn-primary" id="btnCriarPedido" type="button">Solicitar motoboy</button>
+            </div>
+
+            <div class="note" style="margin-top:12px" id="notePedido">
+              Este pedido é registrado no sistema e aparecerá para atribuição. O rastreio funciona quando o motoboy enviar posição.
+            </div>
+          </section>
+
+          <!-- TAB: RASTREIO -->
+          <section id="tab-rastreio" class="hide">
+            <div class="statusbar">
+              <div class="kv">
+                <small>STATUS</small>
+                <strong id="statusTxt">—</strong>
+              </div>
+              <div class="kv" style="text-align:right;">
+                <small>MOTOBOY</small>
+                <strong id="motoTxt">—</strong>
+              </div>
+            </div>
+
+            <div class="list" id="timeline"></div>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <button class="btn btn-ghost" id="btnCentralizar" type="button">Centralizar no mapa</button>
+              <button class="btn btn-danger" id="btnCancelar" type="button">Cancelar pedido</button>
+            </div>
+
+            <div class="note" style="margin-top:12px">
+              O mapa mostra: coleta, entrega e posição do motoboy. Atualiza por polling (tempo real do seu banco).
+            </div>
+          </section>
+
+          <!-- TAB: CRÉDITO -->
+          <section id="tab-credito" class="hide">
+            <div class="statusbar">
+              <div class="kv">
+                <small>RECARGA RÁPIDA</small>
+                <strong>Escolha um valor</strong>
+              </div>
+              <div class="kv" style="text-align:right;">
+                <small>MÉTODO</small>
+                <strong id="metodoTxt">Pix</strong>
+              </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <div class="field">
+                <label for="valorRecarga">Valor (R$)</label>
+                <input class="input" id="valorRecarga" inputmode="decimal" placeholder="Ex.: 30,00">
+              </div>
+              <div class="field">
+                <label for="metodoRecarga">Método</label>
+                <select class="select" id="metodoRecarga">
+                  <option value="pix">Pix</option>
+                  <option value="cartao">Cartão</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row" style="margin-bottom:10px;">
+              <button class="btn btn-ghost recargaPreset" data-v="20" type="button">R$ 20</button>
+              <button class="btn btn-ghost recargaPreset" data-v="30" type="button">R$ 30</button>
+              <button class="btn btn-ghost recargaPreset" data-v="50" type="button">R$ 50</button>
+            </div>
+
+            <button class="btn btn-primary" id="btnGerarRecarga" type="button">Gerar cobrança</button>
+
+            <div class="hr"></div>
+
+            <div class="note" id="boxCobranca">
+              Ao gerar cobrança, o sistema cria uma solicitação de recarga. No Pix, será exibida a chave e referência; no Cartão, você integra o seu provedor.
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- COLUNA DIREITA: MAPA -->
+      <div class="card map-card">
+        <div id="map"></div>
+
+        <div class="overlay">
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="sheet-h">
+              <div class="left">
+                <strong id="sheetTitle">Mapa de rastreio</strong>
+                <small id="sheetSub">Coleta, entrega e motoboy em tempo real.</small>
+              </div>
+              <span class="chip" id="chipETA">ETA —</span>
+            </div>
+            <div class="sheet-b">
+              <div>
+                <div class="kv">
+                  <small>PEDIDO</small>
+                  <strong id="pedidoRef">—</strong>
+                </div>
+                <div style="height:8px"></div>
+                <div class="kv">
+                  <small>ENDEREÇOS</small>
+                  <strong id="addrMini">—</strong>
+                </div>
+              </div>
+              <div class="cta">
+                <button class="btn btn-ghost" id="btnAbrirRastreio" type="button">Abrir rastreio</button>
+                <button class="btn btn-primary" id="btnNovoPedido" type="button">Novo pedido</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="inner">
+      <button class="navbtn active" data-tab="pedido" type="button">
+        <div>Pedido</div>
+        <div class="mini">solicitar</div>
+      </button>
+      <button class="navbtn" data-tab="rastreio" type="button">
+        <div>Rastreio</div>
+        <div class="mini">mapa</div>
+      </button>
+      <button class="navbtn" data-tab="credito" type="button">
+        <div>Crédito</div>
+        <div class="mini">recarga</div>
+      </button>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin
+  ></script>
+
+  <script>
+    /***********************
+     * ENDPOINTS REAIS (Flask)
+     ***********************/
+    const API = {
+      me:         "{{ url_for('api_cliente_me') }}",
+      saldo:      "{{ url_for('api_credito_saldo') }}",
+      recarga:    "{{ url_for('api_credito_recarga') }}",
+      pedido:     "{{ url_for('api_pedidos_criar') }}",
+      pedidoAtivo:"{{ url_for('api_pedidos_ativo') }}",
+      cancelar:   (id) => "{{ url_for('api_pedidos_cancelar', pedido_id=0) }}".replace("/0", `/${id}`),
+      tracking:   (id) => "{{ url_for('api_pedidos_tracking', pedido_id=0) }}".replace("/0", `/${id}`),
+    };
+
+    const POLL_MS = 3000;
+
+    /***********************
+     * UTIL
+     ***********************/
+    const moneyBR = (n) => (Number(n||0)).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    const $ = (id)=>document.getElementById(id);
+
+    function setOnline(flag){
+      const dot = $("onlineDot");
+      const txt = $("onlineText");
+      dot.style.background = flag ? "var(--ok)" : "var(--bad)";
+      dot.style.boxShadow = flag ? "0 0 0 6px rgba(18,185,129,.14)" : "0 0 0 6px rgba(239,68,68,.14)";
+      txt.textContent = flag ? "Online" : "Offline";
+    }
+
+    async function safeJSON(url, opts){
+      try{
+        const r = await fetch(url, opts);
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        return await r.json();
+      }catch(e){
+        return null;
+      }
+    }
+
+    function parseBRL(v){
+      const s = (v||"").trim().replace(/\./g,"").replace(",",".");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    /***********************
+     * STATE
+     ***********************/
+    const state = {
+      cliente: { nome:"Cliente" },
+      saldo: 0,
+      pedido: null, // {id, origemTxt, destinoTxt, valor, status, eta_min, motoboyNome}
+      lastTracking: null
+    };
+
+    /***********************
+     * MAPA
+     ***********************/
+    let map, mOrigem, mDestino, mMoto, routeLine;
+
+    function initMap(){
+      const natal = [-5.7945, -35.2110];
+      map = L.map("map", { zoomControl:true }).setView(natal, 13);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(map);
+
+      const mk = (label, color) => L.divIcon({
+        className: "",
+        html: `
+          <div style="
+              width:42px;height:42px;border-radius:18px;
+              background:linear-gradient(180deg,#fff,#F7FAFF);
+              border:1px solid rgba(214,226,255,.95);
+              box-shadow:0 16px 30px rgba(10,25,80,.12);
+              display:grid;place-items:center;position:relative;">
+            <div style="width:12px;height:12px;border-radius:999px;background:${color};box-shadow:0 0 0 8px ${color}22;"></div>
+            <div style="
+              position:absolute;left:50%;top:100%;
+              transform:translate(-50%,-4px) rotate(45deg);
+              width:12px;height:12px;background:linear-gradient(180deg,#fff,#F7FAFF);
+              border-left:1px solid rgba(214,226,255,.95);
+              border-bottom:1px solid rgba(214,226,255,.95);
+              border-bottom-left-radius:3px;"></div>
+          </div>
+          <div style="
+              margin-top:6px;background:rgba(255,255,255,.92);
+              border:1px solid rgba(214,226,255,.9);
+              color:var(--royal);
+              padding:6px 10px;border-radius:999px;
+              font-weight:900;font-size:11px;display:inline-block;
+              box-shadow:0 10px 20px rgba(10,25,80,.08);
+            ">${label}</div>
+        `,
+        iconSize: [120, 56],
+        iconAnchor: [22, 42]
+      });
+
+      mOrigem  = L.marker(natal, { icon: mk("Coleta", "#255BFF") }).addTo(map);
+      mDestino = L.marker(natal, { icon: mk("Entrega", "#003399") }).addTo(map);
+      mMoto    = L.marker(natal, { icon: mk("Motoboy", "#12B981") }).addTo(map);
+
+      routeLine = L.polyline([natal, natal], { weight:5, opacity:.9 }).addTo(map);
+    }
+
+    function setRoute(orig, dest){
+      mOrigem.setLatLng(orig);
+      mDestino.setLatLng(dest);
+      routeLine.setLatLngs([orig, dest]);
+      const b = L.latLngBounds([orig, dest]).pad(0.25);
+      map.fitBounds(b, { animate:true, duration:0.6 });
+    }
+
+    function setMoto(pos){
+      mMoto.setLatLng(pos);
+    }
+
+    /***********************
+     * UI
+     ***********************/
+    function setTab(tab){
+      document.querySelectorAll(".tab").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
+      document.querySelectorAll(".navbtn").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
+      $("tab-pedido").classList.toggle("hide", tab!=="pedido");
+      $("tab-rastreio").classList.toggle("hide", tab!=="rastreio");
+      $("tab-credito").classList.toggle("hide", tab!=="credito");
+    }
+
+    function setSaldo(n){
+      state.saldo = Number(n||0);
+      $("saldoVal").textContent = moneyBR(state.saldo);
+      $("saldoHint").textContent = state.saldo > 0
+        ? "Use seu crédito para pagar pedidos com mais rapidez."
+        : "Saldo zerado. Faça uma recarga para pedir com crédito.";
+    }
+
+    function setEstimativa(valor, eta){
+      $("precoTxt").textContent = valor != null ? moneyBR(valor) : "—";
+      $("etaTxt").textContent = eta != null ? `${eta} min` : "—";
+      $("chipETA").textContent = eta != null ? `ETA ${eta} min` : "ETA —";
+    }
+
+    function setBadge(){
+      const dot = $("badgeDot");
+      const txt = $("badgeTxt");
+
+      if(!state.pedido){
+        dot.style.background = "var(--warn)";
+        dot.style.boxShadow = "0 0 0 6px rgba(245,158,11,.14)";
+        txt.textContent = "Sem pedido ativo";
+        $("statusTxt").textContent = "Sem pedido ativo";
+        $("motoTxt").textContent = "—";
+        $("pedidoRef").textContent = "—";
+        $("addrMini").textContent = "—";
+        setEstimativa(null, null);
+        return;
+      }
+
+      const st = state.pedido.status || "Em andamento";
+      txt.textContent = st;
+      const ok = /entreg/i.test(st);
+      dot.style.background = ok ? "var(--ok)" : "var(--warn)";
+      dot.style.boxShadow = ok ? "0 0 0 6px rgba(18,185,129,.14)" : "0 0 0 6px rgba(245,158,11,.14)";
+
+      $("statusTxt").textContent = st;
+      $("motoTxt").textContent = state.pedido.motoboyNome || "—";
+      $("pedidoRef").textContent = state.pedido.id || "—";
+      $("addrMini").textContent = `${state.pedido.origemTxt || "—"} → ${state.pedido.destinoTxt || "—"}`;
+      setEstimativa(state.pedido.valor, state.pedido.eta_min);
+    }
+
+    function renderTimeline(){
+      const wrap = $("timeline");
+      wrap.innerHTML = "";
+
+      if(!state.pedido){
+        wrap.innerHTML = `
+          <div class="item">
+            <div class="ic">1</div>
+            <div class="tx">
+              <strong>Crie um pedido</strong>
+              <small>Quando houver pedido ativo, o rastreio abre com status e ETA.</small>
+            </div>
+            <div class="right"><span class="chip">Aguardando</span></div>
+          </div>
+        `;
+        return;
+      }
+
+      const steps = [
+        {k:"Criado",    d:"Pedido criado e aguardando atribuição."},
+        {k:"Atribuído", d:"Motoboy atribuído e a caminho da coleta."},
+        {k:"Coleta",    d:"Motoboy no local de coleta."},
+        {k:"Em rota",   d:"Em rota para entrega."},
+        {k:"Entregue",  d:"Entrega concluída."},
+      ];
+
+      const status = (state.pedido.status||"Criado").toLowerCase();
+      const idx =
+        status.includes("entreg") ? 4 :
+        status.includes("rota") || status.includes("andamento") ? 3 :
+        status.includes("colet") ? 2 :
+        status.includes("atribu") ? 1 : 0;
+
+      steps.forEach((s,i)=>{
+        const done = i < idx;
+        const cur  = i === idx;
+        const chip = done ? "Concluído" : (cur ? "Agora" : "Pendente");
+        const dot = done ? "var(--ok)" : (cur ? "var(--warn)" : "rgba(102,112,133,.28)");
+
+        wrap.insertAdjacentHTML("beforeend", `
+          <div class="item">
+            <div class="ic" style="background: radial-gradient(16px 16px at 30% 30%, ${dot}55, ${dot}22);">${i+1}</div>
+            <div class="tx">
+              <strong>${s.k}</strong>
+              <small>${s.d}</small>
+            </div>
+            <div class="right"><span class="chip">${chip}</span></div>
+          </div>
+        `);
+      });
+    }
+
+    /***********************
+     * API: carregamento e polling
+     ***********************/
+    function normalizePedido(p){
+      return {
+        id: String(p.id),
+        origemTxt: p.origem_txt || "",
+        destinoTxt: p.destino_txt || "",
+        valor: Number(p.valor || 0),
+        status: p.status || "Criado",
+        eta_min: (p.eta_min != null ? Number(p.eta_min) : null),
+        motoboyNome: p.motoboy_nome || ""
+      };
+    }
+
+    async function loadInitial(){
+      const me = await safeJSON(API.me);
+      const saldo = await safeJSON(API.saldo);
+      const ativo = await safeJSON(API.pedidoAtivo);
+
+      const ok = !!(me && saldo && ativo);
+      setOnline(ok);
+
+      if(me?.ok){
+        state.cliente = me.cliente;
+        $("welcomeSub").textContent = `Olá, ${state.cliente.nome || "Cliente"}.`;
+      }
+      if(saldo?.ok) setSaldo(saldo.saldo);
+
+      if(ativo?.ok && ativo.pedido){
+        state.pedido = normalizePedido(ativo.pedido);
+        setBadge();
+        renderTimeline();
+        await applyTrackingFromAPI(state.pedido.id);
+        startPolling();
+      }else{
+        state.pedido = null;
+        setBadge();
+        renderTimeline();
+      }
+
+      $("badgeTxt").textContent = state.pedido ? (state.pedido.status || "Em andamento") : "Sem pedido ativo";
+    }
+
+    async function applyTrackingFromAPI(pedidoId){
+      const data = await safeJSON(API.tracking(pedidoId));
+      if(!data || !data.ok) return;
+
+      // Atualiza texto/status
+      if(state.pedido){
+        state.pedido.status = data.status || state.pedido.status;
+        state.pedido.eta_min = (data.eta_min != null ? data.eta_min : state.pedido.eta_min);
+        state.pedido.motoboyNome = (data.motoboy?.nome || state.pedido.motoboyNome);
+
+        if(data.origem?.txt) state.pedido.origemTxt = data.origem.txt;
+        if(data.destino?.txt) state.pedido.destinoTxt = data.destino.txt;
+        if(data.valor != null) state.pedido.valor = Number(data.valor);
+      }
+
+      setBadge();
+      renderTimeline();
+
+      // Atualiza mapa (se tiver coordenadas)
+      const orig = (data.origem?.lat != null && data.origem?.lng != null) ? [data.origem.lat, data.origem.lng] : null;
+      const dest = (data.destino?.lat != null && data.destino?.lng != null) ? [data.destino.lat, data.destino.lng] : null;
+      const moto = (data.motoboy?.lat != null && data.motoboy?.lng != null) ? [data.motoboy.lat, data.motoboy.lng] : null;
+
+      if(orig && dest) setRoute(orig, dest);
+      if(moto) setMoto(moto);
+    }
+
+    let pollTimer = null;
+    function startPolling(){
+      if(pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async ()=>{
+        if(!state.pedido){
+          const ativo = await safeJSON(API.pedidoAtivo);
+          if(ativo?.ok && ativo.pedido){
+            state.pedido = normalizePedido(ativo.pedido);
+            setBadge();
+            renderTimeline();
+          }else{
+            return;
+          }
+        }
+        await applyTrackingFromAPI(state.pedido.id);
+      }, POLL_MS);
+    }
+
+    /***********************
+     * AÇÕES
+     ***********************/
+    function wireTabs(){
+      document.querySelectorAll(".tab").forEach(b=> b.addEventListener("click", ()=>setTab(b.dataset.tab)));
+      document.querySelectorAll(".navbtn").forEach(b=> b.addEventListener("click", ()=>setTab(b.dataset.tab)));
+
+      $("btnIrRecarga").addEventListener("click", ()=>setTab("credito"));
+      $("btnIrPedido").addEventListener("click", ()=>setTab("pedido"));
+      $("btnAbrirRastreio").addEventListener("click", ()=>setTab("rastreio"));
+      $("btnNovoPedido").addEventListener("click", ()=>{
+        setTab("pedido");
+        $("origem").focus();
+      });
+    }
+
+    function wirePedido(){
+      $("btnUsarLocal").addEventListener("click", async ()=>{
+        if(!navigator.geolocation){
+          alert("Geolocalização não suportada neste navegador.");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition((pos)=>{
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          $("origem").value = `Minha localização (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+          // Opcional: você pode mandar essas coords junto no pedido (backend aceita).
+          window.__ORIG_LAT = lat;
+          window.__ORIG_LNG = lng;
+        }, ()=>{
+          alert("Não foi possível obter sua localização. Verifique permissões.");
+        }, { enableHighAccuracy:true, timeout:8000 });
+      });
+
+      $("btnCriarPedido").addEventListener("click", async ()=>{
+        const origemTxt = $("origem").value.trim();
+        const destinoTxt = $("destino").value.trim();
+        const tipo = $("tipo").value;
+        const pagamento = $("pagamento").value;
+        const obs = $("obs").value.trim();
+
+        if(!origemTxt || !destinoTxt){
+          alert("Informe os endereços de coleta e entrega.");
+          return;
+        }
+
+        const payload = {
+          origem_txt: origemTxt,
+          destino_txt: destinoTxt,
+          tipo,
+          pagamento,
+          obs,
+          origem_lat: (window.__ORIG_LAT ?? null),
+          origem_lng: (window.__ORIG_LNG ?? null),
+        };
+
+        const res = await safeJSON(API.pedido, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if(!res || !res.ok){
+          alert(res?.msg || "Não foi possível criar o pedido.");
+          return;
+        }
+
+        setOnline(true);
+        state.pedido = normalizePedido(res.pedido);
+        setBadge();
+        renderTimeline();
+        setTab("rastreio");
+
+        await applyTrackingFromAPI(state.pedido.id);
+        startPolling();
+      });
+    }
+
+    function wireRastreio(){
+      $("btnCentralizar").addEventListener("click", ()=>{
+        const o = mOrigem.getLatLng();
+        const d = mDestino.getLatLng();
+        const b = L.latLngBounds([o,d]).pad(0.25);
+        map.fitBounds(b, { animate:true, duration:0.6 });
+      });
+
+      $("btnCancelar").addEventListener("click", async ()=>{
+        if(!state.pedido){
+          alert("Não há pedido ativo para cancelar.");
+          return;
+        }
+        if(!confirm("Deseja cancelar o pedido ativo?")) return;
+
+        const r = await safeJSON(API.cancelar(state.pedido.id), { method:"POST" });
+        if(!r || !r.ok){
+          alert(r?.msg || "Não foi possível cancelar.");
+          return;
+        }
+
+        state.pedido = null;
+        setBadge();
+        renderTimeline();
+        setTab("pedido");
+      });
+    }
+
+    function wireCredito(){
+      $("metodoRecarga").addEventListener("change", ()=>{
+        $("metodoTxt").textContent = $("metodoRecarga").value === "pix" ? "Pix" : "Cartão";
+      });
+
+      document.querySelectorAll(".recargaPreset").forEach(b=>{
+        b.addEventListener("click", ()=> $("valorRecarga").value = (b.dataset.v || "").replace(".", ","));
+      });
+
+      $("btnGerarRecarga").addEventListener("click", async ()=>{
+        const valor = parseBRL($("valorRecarga").value);
+        const metodo = $("metodoRecarga").value;
+
+        if(!valor || valor <= 0){
+          alert("Informe um valor válido para recarga.");
+          return;
+        }
+
+        const r = await safeJSON(API.recarga, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ valor, metodo })
+        });
+
+        if(!r || !r.ok){
+          alert(r?.msg || "Não foi possível gerar a recarga.");
+          return;
+        }
+
+        setOnline(true);
+
+        // Atualiza UI do box (Pix real por chave + referência; Cartão depende do provedor)
+        if(metodo === "pix"){
+          $("boxCobranca").innerHTML = `
+            <strong>Solicitação criada (#${r.recarga_id}).</strong><br>
+            Pague via Pix para a chave abaixo e use a referência (se aplicável).<br><br>
+            <strong>Chave Pix:</strong> <span style="font-family:ui-monospace,monospace;">${r.pix_chave}</span><br>
+            <strong>Valor:</strong> ${moneyBR(r.valor)}<br>
+            <strong>Referência:</strong> <span style="font-family:ui-monospace,monospace;">${r.referencia || ("RECARGA-"+r.recarga_id)}</span><br>
+            <div style="margin-top:10px">Após o pagamento, a recarga fica como <strong>Pendente</strong> até aprovação no painel administrativo.</div>
+          `;
+        } else {
+          $("boxCobranca").innerHTML = `
+            <strong>Solicitação criada (#${r.recarga_id}).</strong><br>
+            Método: <strong>Cartão</strong>.<br>
+            <div style="margin-top:10px">
+              Integração necessária: seu backend deve retornar um <strong>checkout_url</strong> do provedor e você redireciona o cliente.
+            </div>
+            ${r.checkout_url ? `<div style="margin-top:10px"><a class="btn btn-primary" style="height:44px" href="${r.checkout_url}">Pagar agora</a></div>` : ""}
+          `;
+        }
+
+        // Atualiza saldo (pode não mudar até aprovação; mesmo assim mostramos o saldo atual do backend)
+        const s = await safeJSON(API.saldo);
+        if(s?.ok) setSaldo(s.saldo);
+      });
+    }
+
+    /***********************
+     * BOOT
+     ***********************/
+    initMap();
+    wireTabs();
+    wirePedido();
+    wireRastreio();
+    wireCredito();
+    loadInitial();
+
+    $("btnAbrirRastreio").addEventListener("click", ()=>setTab("rastreio"));
+    $("btnNovoPedido").addEventListener("click", ()=>setTab("pedido"));
+  </script>
+</body>
+</html>

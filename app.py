@@ -22,6 +22,8 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeSerializer, BadSignature
 
 import pandas as pd
 import holidays
@@ -79,6 +81,130 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 db = SQLAlchemy(app)
+
+# =========================================================
+# COMPROVANTE DE ENTREGA (FOTO) — armazenado por 7 dias
+# =========================================================
+COMPROVANTE_DIR = os.path.join(app.instance_path, "comprovantes")
+COMPROVANTE_INDEX = os.path.join(app.instance_path, "comprovantes_index.json")
+COMPROVANTE_TTL_DAYS = 7
+
+def _ensure_comprovante_dirs():
+    try:
+        os.makedirs(COMPROVANTE_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+def _load_comprovante_index():
+    _ensure_comprovante_dirs()
+    data = {}
+    try:
+        if os.path.exists(COMPROVANTE_INDEX):
+            with open(COMPROVANTE_INDEX, "r", encoding="utf-8") as f:
+                data = json.load(f) or {}
+    except Exception:
+        data = {}
+    _cleanup_comprovantes(data)
+    return data
+
+def _save_comprovante_index(data: dict):
+    _ensure_comprovante_dirs()
+    try:
+        tmp = COMPROVANTE_INDEX + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, COMPROVANTE_INDEX)
+    except Exception:
+        pass
+
+from typing import Optional, Dict, Any
+
+def _cleanup_comprovantes(index_data: Optional[Dict[str, Any]] = None):
+    # apaga arquivos com mais de 7 dias (por mtime) e limpa o index
+    _ensure_comprovante_dirs()
+    cutoff = datetime.utcnow() - timedelta(days=COMPROVANTE_TTL_DAYS)
+    try:
+        for name in os.listdir(COMPROVANTE_DIR):
+            p = os.path.join(COMPROVANTE_DIR, name)
+            try:
+                mtime = datetime.utcfromtimestamp(os.path.getmtime(p))
+                if mtime < cutoff:
+                    os.remove(p)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    if index_data is None:
+        return
+
+    # remove entradas expiradas ou sem arquivo
+    changed = False
+    for k in list(index_data.keys()):
+        fn = (index_data.get(k) or {}).get("filename")
+        if not fn:
+            index_data.pop(k, None); changed = True; continue
+        fp = os.path.join(COMPROVANTE_DIR, fn)
+        if not os.path.exists(fp):
+            index_data.pop(k, None); changed = True; continue
+        try:
+            mtime = datetime.utcfromtimestamp(os.path.getmtime(fp))
+            if mtime < cutoff:
+                try: os.remove(fp)
+                except Exception: pass
+                index_data.pop(k, None); changed = True
+        except Exception:
+            pass
+    if changed:
+        _save_comprovante_index(index_data)
+
+def comprovante_info(entrega_id: int):
+    idx = _load_comprovante_index()
+    return idx.get(str(entrega_id))
+
+def comprovante_existe(entrega_id: int) -> bool:
+    info = comprovante_info(entrega_id)
+    if not info: 
+        return False
+    fn = info.get("filename")
+    if not fn:
+        return False
+    return os.path.exists(os.path.join(COMPROVANTE_DIR, fn))
+
+def _salvar_comprovante(entrega_id: int, file_storage):
+    _ensure_comprovante_dirs()
+    _cleanup_comprovantes()
+    if not file_storage:
+        return None
+
+    filename = secure_filename(file_storage.filename or "")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        # tenta salvar como jpg se vier sem extensão correta
+        ext = ".jpg"
+
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    out_name = f"entrega_{entrega_id}_{ts}{ext}"
+    out_path = os.path.join(COMPROVANTE_DIR, out_name)
+    file_storage.save(out_path)
+
+    idx = _load_comprovante_index()
+    idx[str(entrega_id)] = {"filename": out_name, "uploaded_at": datetime.utcnow().isoformat() + "Z"}
+    _save_comprovante_index(idx)
+    return out_name
+
+# =========================================================
+# RASTREIO POR LINK (por entrega)
+# =========================================================
+def _rastreio_serializer():
+    return URLSafeSerializer(app.config["SECRET_KEY"], salt="rastreio_entrega_v1")
+
+def gerar_token_rastreio(entrega_id: int):
+    return _rastreio_serializer().dumps({"entrega_id": int(entrega_id)})
+
+def ler_token_rastreio(token: str):
+    return _rastreio_serializer().loads(token)
+
 
 # =========================================================
 # FLASK-LOGIN / LOGIN MANAGER
@@ -775,6 +901,8 @@ def diasemana(data):
     return dias[data.weekday()]
 
 app.jinja_env.filters['diasemana'] = diasemana
+app.jinja_env.globals['tem_comprovante'] = comprovante_existe
+app.jinja_env.globals['token_rastreio'] = gerar_token_rastreio
 
 # =========================================================
 # RASTREAMENTO - HELPER DE LINHA DO TEMPO
@@ -2748,6 +2876,35 @@ def admin_novo_socorro():
         "momento": ULTIMO_SOCORRO["momento"],
     }), 200
 
+# =========================================================
+# ADMIN — visualizar / baixar comprovante (foto) da entrega
+# =========================================================
+@app.get("/admin/entrega/<int:entrega_id>/comprovante")
+def admin_ver_comprovante(entrega_id):
+    if not session.get("is_admin") and not session.get("is_master"):
+        abort(403)
+    info = comprovante_info(entrega_id)
+    if not info or not info.get("filename"):
+        abort(404)
+    fp = os.path.join(COMPROVANTE_DIR, info["filename"])
+    if not os.path.exists(fp):
+        abort(404)
+    # envia inline (abre no navegador)
+    return send_file(fp)
+
+@app.get("/admin/entrega/<int:entrega_id>/comprovante/download")
+def admin_baixar_comprovante(entrega_id):
+    if not session.get("is_admin") and not session.get("is_master"):
+        abort(403)
+    info = comprovante_info(entrega_id)
+    if not info or not info.get("filename"):
+        abort(404)
+    fp = os.path.join(COMPROVANTE_DIR, info["filename"])
+    if not os.path.exists(fp):
+        abort(404)
+    return send_file(fp, as_attachment=True, download_name=info["filename"])
+
+
 # ================================
 # PAINEL DO COOPERADO (ESTILO UBER)
 # ================================
@@ -2893,7 +3050,14 @@ def painel_cooperado():
         total_pendente=total_pendente,
         request=request,
         to_brasilia=to_brasilia,
-        status_pgto=status_pgto
+        status_pgto=status_pgto,
+        ano_atual=datetime.now(BRAZIL_TZ).year,
+        mes_atual=datetime.now(BRAZIL_TZ).month,
+        meses_ano=[
+            {'num':1,'nome':'Janeiro'},{'num':2,'nome':'Fevereiro'},{'num':3,'nome':'Março'},{'num':4,'nome':'Abril'},
+            {'num':5,'nome':'Maio'},{'num':6,'nome':'Junho'},{'num':7,'nome':'Julho'},{'num':8,'nome':'Agosto'},
+            {'num':9,'nome':'Setembro'},{'num':10,'nome':'Outubro'},{'num':11,'nome':'Novembro'},{'num':12,'nome':'Dezembro'},
+        ],
     )
 
 @app.route("/cooperado/verificar_nova_entrega")
@@ -5502,18 +5666,104 @@ def toggle_pagamento(id):
     return jsonify(ok=True, status_pagamento=novo)
 
 
+@app.get('/cooperado/api/ganhos')
+def api_ganhos():
+    if session.get('user_id') is None or session.get('is_admin'):
+        return jsonify(ok=False, error='unauthorized'), 401
+
+    cooperado_id = int(session.get('user_id'))
+    hoje_local = datetime.now(BRAZIL_TZ).date()
+    ano = request.args.get('ano', type=int) or hoje_local.year
+    mes = request.args.get('mes', type=int) or hoje_local.month
+
+    # janela do mês (em BRT) -> UTC range
+    first = date(ano, mes, 1)
+    # último dia do mês
+    if mes == 12:
+        last = date(ano + 1, 1, 1) - timedelta(days=1)
+    else:
+        last = date(ano, mes + 1, 1) - timedelta(days=1)
+
+    ini_utc, _ = local_date_window_to_utc_range(first)
+    _, fim_utc = local_date_window_to_utc_range(last)
+
+    q = Entrega.query.filter(
+        Entrega.cooperado_id == cooperado_id,
+        Entrega.data_envio >= ini_utc,
+        Entrega.data_envio <= fim_utc,
+    )
+
+    entregas = q.all()
+    total_mes = sum(float(e.valor or 0) for e in entregas)
+    total_pago_mes = sum(float(e.valor or 0) for e in entregas if (e.status_pagamento or '').lower() == 'pago')
+    total_pendente_mes = max(0.0, total_mes - total_pago_mes)
+
+    # ano atual
+    first_y = date(ano, 1, 1)
+    last_y = date(ano, 12, 31)
+    ini_y, _ = local_date_window_to_utc_range(first_y)
+    _, fim_y = local_date_window_to_utc_range(last_y)
+
+    qy = Entrega.query.filter(
+        Entrega.cooperado_id == cooperado_id,
+        Entrega.data_envio >= ini_y,
+        Entrega.data_envio <= fim_y,
+    )
+    ent_ano = qy.all()
+    total_ano = sum(float(e.valor or 0) for e in ent_ano)
+    total_pago_ano = sum(float(e.valor or 0) for e in ent_ano if (e.status_pagamento or '').lower() == 'pago')
+    total_pendente_ano = max(0.0, total_ano - total_pago_ano)
+
+    return jsonify(ok=True,
+                   ano=ano, mes=mes,
+                   total_mes=round(total_mes, 2),
+                   pago_mes=round(total_pago_mes, 2),
+                   pendente_mes=round(total_pendente_mes, 2),
+                   total_ano=round(total_ano, 2),
+                   pago_ano=round(total_pago_ano, 2),
+                   pendente_ano=round(total_pendente_ano, 2),
+                   qtd_mes=len(entregas),
+                   qtd_ano=len(ent_ano))
+
+
+
 @app.post('/cooperado/marcar_entregue/<int:id>')
 def cooperado_marcar_entregue(id):
+    """Marca entrega como recebida/entregue.
+    Agora aceita:
+      - JSON: {recebido_por: "..."} (compatível com o que já existia)
+      - multipart/form-data: recebido_por (opcional) + foto (opcional)
+    Regra: precisa ter **nome** OU **foto**.
+    """
     e = Entrega.query.get_or_404(id)
     _assert_entrega_do_cooperado(e)
-    payload = request.get_json(silent=True) or {}
-    recebido_por = (payload.get('recebido_por') or '').strip()
-    if not recebido_por:
-        return jsonify(ok=False, error='Campo "recebido_por" é obrigatório.'), 400
+
+    recebido_por = ''
+    foto_fs = None
+
+    # 1) Se veio upload (FormData), pega do form/files
+    if request.files:
+        recebido_por = (request.form.get('recebido_por') or '').strip()
+        foto_fs = request.files.get('foto')
+    else:
+        # 2) Compatibilidade com JSON antigo
+        payload = request.get_json(silent=True) or {}
+        recebido_por = (payload.get('recebido_por') or '').strip()
+
+    if not recebido_por and not foto_fs:
+        return jsonify(ok=False, error='Informe o nome de quem recebeu OU envie uma foto.'), 400
+
+    # salva foto (se veio)
+    if foto_fs and getattr(foto_fs, "filename", ""):
+        try:
+            _salvar_comprovante(e.id, foto_fs)
+        except Exception:
+            return jsonify(ok=False, error='Não foi possível salvar a foto agora.'), 500
+
     e.status = 'recebido'
-    e.recebido_por = recebido_por
+    e.recebido_por = recebido_por or (e.recebido_por or None)
     db.session.commit()
-    return jsonify(ok=True)
+    return jsonify(ok=True, tem_foto=comprovante_existe(e.id))
 
 
 @app.get('/cooperado/api/entrega_atribuida')
@@ -6634,6 +6884,117 @@ def handle_atualizar_entrega(data):
         },
         room=f"entrega_{entrega_id}",
     )
+
+
+
+# =========================================================
+# LINK DE RASTREIO (por entrega) — desativa ao concluir
+# =========================================================
+@app.get("/rastreio/<token>")
+def rastreio_publico(token):
+    try:
+        data = ler_token_rastreio(token)
+        entrega_id = int(data.get("entrega_id"))
+    except Exception:
+        return "<h2>Link inválido.</h2>", 400
+
+    e = Entrega.query.get(entrega_id)
+    if not e:
+        return "<h2>Entrega não encontrada.</h2>", 404
+
+    st = (e.status or "").lower()
+    if st in ["recebido", "entregue", "concluido", "concluída", "concluida"]:
+        return "<h2>Rastreio encerrado: entrega concluída.</h2>", 410
+
+    coop_nome = (e.cooperado.nome if getattr(e, "cooperado", None) else "Cooperado")
+    html = f"""<!doctype html>
+<html lang="pt-br"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rastreio — Entrega #{entrega_id}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  body{{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b1220;color:#fff}}
+  header{{padding:10px 12px;background:linear-gradient(90deg,#0b2cc2,#1a47ff);font-weight:800}}
+  #map{{height: calc(100vh - 54px); width:100%}}
+  .small{{opacity:.9;font-weight:700}}
+</style>
+</head><body>
+<header>Rastreio em tempo real — Entrega #{entrega_id} <span class="small">({coop_nome})</span></header>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const token = {json.dumps(token)};
+  const map = L.map('map', {{ zoomControl:true }}).setView([-5.7945,-35.2110], 13);
+  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(map);
+  let marker = null;
+
+  async function pull(){{
+    try{{
+      const r = await fetch('/api/rastreio_pos/'+encodeURIComponent(token), {{cache:'no-store'}});
+      if(r.status === 410){{
+        document.body.innerHTML = '<h2 style="padding:16px">Rastreio encerrado: entrega concluída.</h2>';
+        return;
+      }}
+      const data = await r.json();
+      if(!data.ok) return;
+
+      const lat = data.lat, lng = data.lng;
+      if(typeof lat !== 'number' || typeof lng !== 'number') return;
+
+      const txt = (data.cooperado || '') + ' • ' + (data.quando_local || '');
+      if(!marker){{
+        marker = L.circleMarker([lat,lng], {{
+          radius: 7,
+          weight: 2,
+          fillOpacity: 0.8
+        }}).addTo(map);
+        marker.bindTooltip(txt, {{direction:'top', sticky:true}});
+        map.setView([lat,lng], 15);
+      }} else {{
+        marker.setLatLng([lat,lng]);
+        marker.setTooltipContent(txt);
+      }}
+    }}catch(e){{}}
+  }}
+  pull();
+  setInterval(pull, 5000);
+</script>
+</body></html>"""
+    return html
+
+@app.get("/api/rastreio_pos/<token>")
+def api_rastreio_pos(token):
+    try:
+        data = ler_token_rastreio(token)
+        entrega_id = int(data.get("entrega_id"))
+    except Exception:
+        return jsonify(ok=False, error="invalid_token"), 400
+
+    e = Entrega.query.get(entrega_id)
+    if not e:
+        return jsonify(ok=False, error="not_found"), 404
+
+    st = (e.status or "").lower()
+    if st in ["recebido", "entregue", "concluido", "concluída", "concluida"]:
+        return jsonify(ok=False, error="ended"), 410
+
+    coop = getattr(e, "cooperado", None)
+    if not coop or coop.last_lat is None or coop.last_lng is None:
+        return jsonify(ok=True, lat=None, lng=None, cooperado=(coop.nome if coop else None), quando_local=None)
+
+    when_local = None
+    try:
+        if coop.last_ping:
+            when_local = to_brasilia(coop.last_ping).strftime("%d/%m/%Y %H:%M:%S")
+    except Exception:
+        when_local = None
+
+    return jsonify(ok=True,
+                   lat=float(coop.last_lat),
+                   lng=float(coop.last_lng),
+                   cooperado=coop.nome,
+                   quando_local=when_local)
 
 
 if __name__ == '__main__':

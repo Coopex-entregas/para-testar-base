@@ -1,4 +1,6 @@
 import os
+import time
+import uuid
 import io
 import re
 import json
@@ -11,7 +13,8 @@ from urllib.parse import urlparse, parse_qs
 from functools import wraps
 from decimal import Decimal
 
-from flask import (
+from flask import (, send_from_directory
+from werkzeug.utils import secure_filename
     Flask, render_template, render_template_string, request, redirect, url_for,
     flash, session, send_file, jsonify, abort, current_app, 
 )
@@ -22,8 +25,6 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from itsdangerous import URLSafeSerializer, BadSignature
 
 import pandas as pd
 import holidays
@@ -34,6 +35,49 @@ from jinja2 import TemplateNotFound
 # CONFIGURAÇÃO BÁSICA
 # =========================================================
 app = Flask(__name__)
+
+# =========================================================
+# ARQUIVOS: fotos de recebimento (armazenar por 7 dias)
+# =========================================================
+FOTOS_RECEBIMENTO_DIR = os.path.join(app.instance_path, "fotos_recebimento")
+os.makedirs(FOTOS_RECEBIMENTO_DIR, exist_ok=True)
+
+def _cleanup_fotos_recebimento():
+    """Remove fotos com mais de 7 dias (DB + arquivo)."""
+    try:
+        limite = datetime.utcnow() - timedelta(days=7)
+        antigas = EntregaFoto.query.filter(EntregaFoto.created_at < limite).all()
+        for f in antigas:
+            try:
+                fp = os.path.join(FOTOS_RECEBIMENTO_DIR, f.filename)
+                if os.path.exists(fp):
+                    os.remove(fp)
+            except Exception:
+                pass
+            try:
+                db.session.delete(f)
+            except Exception:
+                pass
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+_LAST_CLEANUP_TS = 0.0
+
+@app.before_request
+def _periodic_cleanup():
+    global _LAST_CLEANUP_TS
+    try:
+        now_ts = time.time()
+        if now_ts - _LAST_CLEANUP_TS > 1800:
+            _cleanup_fotos_recebimento()
+            _LAST_CLEANUP_TS = now_ts
+    except Exception:
+        pass
+
 
 # Usa a mesma chave que você já tinha, só mudando para config
 app.config['SECRET_KEY'] = os.environ.get(
@@ -81,130 +125,6 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 db = SQLAlchemy(app)
-
-# =========================================================
-# COMPROVANTE DE ENTREGA (FOTO) — armazenado por 7 dias
-# =========================================================
-COMPROVANTE_DIR = os.path.join(app.instance_path, "comprovantes")
-COMPROVANTE_INDEX = os.path.join(app.instance_path, "comprovantes_index.json")
-COMPROVANTE_TTL_DAYS = 7
-
-def _ensure_comprovante_dirs():
-    try:
-        os.makedirs(COMPROVANTE_DIR, exist_ok=True)
-    except Exception:
-        pass
-
-def _load_comprovante_index():
-    _ensure_comprovante_dirs()
-    data = {}
-    try:
-        if os.path.exists(COMPROVANTE_INDEX):
-            with open(COMPROVANTE_INDEX, "r", encoding="utf-8") as f:
-                data = json.load(f) or {}
-    except Exception:
-        data = {}
-    _cleanup_comprovantes(data)
-    return data
-
-def _save_comprovante_index(data: dict):
-    _ensure_comprovante_dirs()
-    try:
-        tmp = COMPROVANTE_INDEX + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, COMPROVANTE_INDEX)
-    except Exception:
-        pass
-
-from typing import Optional, Dict, Any
-
-def _cleanup_comprovantes(index_data: Optional[Dict[str, Any]] = None):
-    # apaga arquivos com mais de 7 dias (por mtime) e limpa o index
-    _ensure_comprovante_dirs()
-    cutoff = datetime.utcnow() - timedelta(days=COMPROVANTE_TTL_DAYS)
-    try:
-        for name in os.listdir(COMPROVANTE_DIR):
-            p = os.path.join(COMPROVANTE_DIR, name)
-            try:
-                mtime = datetime.utcfromtimestamp(os.path.getmtime(p))
-                if mtime < cutoff:
-                    os.remove(p)
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    if index_data is None:
-        return
-
-    # remove entradas expiradas ou sem arquivo
-    changed = False
-    for k in list(index_data.keys()):
-        fn = (index_data.get(k) or {}).get("filename")
-        if not fn:
-            index_data.pop(k, None); changed = True; continue
-        fp = os.path.join(COMPROVANTE_DIR, fn)
-        if not os.path.exists(fp):
-            index_data.pop(k, None); changed = True; continue
-        try:
-            mtime = datetime.utcfromtimestamp(os.path.getmtime(fp))
-            if mtime < cutoff:
-                try: os.remove(fp)
-                except Exception: pass
-                index_data.pop(k, None); changed = True
-        except Exception:
-            pass
-    if changed:
-        _save_comprovante_index(index_data)
-
-def comprovante_info(entrega_id: int):
-    idx = _load_comprovante_index()
-    return idx.get(str(entrega_id))
-
-def comprovante_existe(entrega_id: int) -> bool:
-    info = comprovante_info(entrega_id)
-    if not info: 
-        return False
-    fn = info.get("filename")
-    if not fn:
-        return False
-    return os.path.exists(os.path.join(COMPROVANTE_DIR, fn))
-
-def _salvar_comprovante(entrega_id: int, file_storage):
-    _ensure_comprovante_dirs()
-    _cleanup_comprovantes()
-    if not file_storage:
-        return None
-
-    filename = secure_filename(file_storage.filename or "")
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
-        # tenta salvar como jpg se vier sem extensão correta
-        ext = ".jpg"
-
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    out_name = f"entrega_{entrega_id}_{ts}{ext}"
-    out_path = os.path.join(COMPROVANTE_DIR, out_name)
-    file_storage.save(out_path)
-
-    idx = _load_comprovante_index()
-    idx[str(entrega_id)] = {"filename": out_name, "uploaded_at": datetime.utcnow().isoformat() + "Z"}
-    _save_comprovante_index(idx)
-    return out_name
-
-# =========================================================
-# RASTREIO POR LINK (por entrega)
-# =========================================================
-def _rastreio_serializer():
-    return URLSafeSerializer(app.config["SECRET_KEY"], salt="rastreio_entrega_v1")
-
-def gerar_token_rastreio(entrega_id: int):
-    return _rastreio_serializer().dumps({"entrega_id": int(entrega_id)})
-
-def ler_token_rastreio(token: str):
-    return _rastreio_serializer().loads(token)
-
 
 # =========================================================
 # FLASK-LOGIN / LOGIN MANAGER
@@ -640,6 +560,26 @@ def emitir_posicao_motoboy(cooperado: Cooperado, lat: float, lng: float, velocid
             pass
 
 
+
+# =========================================================
+# FOTO DE COMPROVANTE (RECEBIMENTO) - 7 dias
+# =========================================================
+class EntregaFoto(db.Model):
+    __tablename__ = 'entrega_foto'
+
+    id = db.Column(db.Integer, primary_key=True)
+    entrega_id = db.Column(db.Integer, db.ForeignKey('entrega.id'), nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    entrega = db.relationship('Entrega', backref=db.backref('fotos_recebimento', lazy='dynamic', cascade='all,delete'))
+
+    def is_expired(self) -> bool:
+        try:
+            return (datetime.utcnow() - (self.created_at or datetime.utcnow())) > timedelta(days=7)
+        except Exception:
+            return False
+
 class Credito(db.Model):
     __tablename__ = 'credito'
 
@@ -901,8 +841,6 @@ def diasemana(data):
     return dias[data.weekday()]
 
 app.jinja_env.filters['diasemana'] = diasemana
-app.jinja_env.globals['tem_comprovante'] = comprovante_existe
-app.jinja_env.globals['token_rastreio'] = gerar_token_rastreio
 
 # =========================================================
 # RASTREAMENTO - HELPER DE LINHA DO TEMPO
@@ -2828,7 +2766,23 @@ def admin():
                 "ultima_atualizacao": to_brasilia(c.last_ping).strftime('%d/%m %H:%M') if c.last_ping else ""
             })
 
-    return render_template(
+        foto_por_entrega = {}
+    try:
+        ids = [e.id for e in entregas]
+        if ids:
+            fotos = (EntregaFoto.query.filter(EntregaFoto.entrega_id.in_(ids)).order_by(EntregaFoto.created_at.desc()).all())
+            for f in fotos:
+                if f.is_expired():
+                    continue
+                if f.entrega_id not in foto_por_entrega:
+                    foto_por_entrega[f.entrega_id] = {
+                        'view': url_for('admin_ver_foto_recebimento', entrega_id=f.entrega_id),
+                        'download': url_for('admin_download_foto_recebimento', entrega_id=f.entrega_id),
+                    }
+    except Exception:
+        foto_por_entrega = {}
+
+return render_template(
         'admin.html',
         entregas=entregas,
         cooperados=cooperados,
@@ -2845,220 +2799,82 @@ def admin():
         # >>> VARIÁVEIS NOVAS PARA O JS <<<
         cooperados_js=cooperados_js,
         motoboys_js=motoboys_js,
+        foto_por_entrega=foto_por_entrega,
     )
+
+
+
+# =========================================================
+# ADMIN: VER / BAIXAR FOTO DE RECEBIMENTO (7 dias)
+# =========================================================
+def _get_latest_foto_entrega(entrega_id: int):
+    try:
+        return (EntregaFoto.query
+                .filter(EntregaFoto.entrega_id == entrega_id)
+                .order_by(EntregaFoto.created_at.desc())
+                .first())
+    except Exception:
+        return None
+
+@app.get('/admin/entregas/<int:entrega_id>/foto')
+def admin_ver_foto_recebimento(entrega_id):
+    if not session.get('is_admin') and not session.get('is_master'):
+        return redirect(url_for('login'))
+    f = _get_latest_foto_entrega(entrega_id)
+    if not f or f.is_expired():
+        abort(404)
+    return send_from_directory(FOTOS_RECEBIMENTO_DIR, f.filename)
+
+@app.get('/admin/entregas/<int:entrega_id>/foto/download')
+def admin_download_foto_recebimento(entrega_id):
+    if not session.get('is_admin') and not session.get('is_master'):
+        return redirect(url_for('login'))
+    f = _get_latest_foto_entrega(entrega_id)
+    if not f or f.is_expired():
+        abort(404)
+    return send_from_directory(FOTOS_RECEBIMENTO_DIR, f.filename, as_attachment=True, download_name=f.filename)
 
 
 @app.route("/admin_novo_socorro")
 def admin_novo_socorro():
-    """
-    Rota que o PAINEL DA SUPERVISÃO (admin) fica consultando de tempos em tempos.
-    Se tiver um socorro não lido, devolve os dados.
-    Não tem HTML, só JSON.
-    """
-
-    # MESMA regra de permissão que você usa no /admin
-    # (se no seu app for outro campo, troque "is_admin" por ele)
+    """Retorna socorros pendentes. Só some quando o admin clicar no X."""
     if not session.get("is_admin") and not session.get("is_master"):
         abort(403)
 
-    global ULTIMO_SOCORRO
-    if not ULTIMO_SOCORRO or ULTIMO_SOCORRO.get("lido"):
-        # não tem socorro novo
-        return jsonify({"novo": False}), 200
+    pendentes = [s for s in SOCORROS_PENDENTES if not s.get("lido")]
+    if not pendentes:
+        return jsonify({"novo": False, "count": 0, "socorros": []}), 200
 
-    # marca como lido (só dispara uma vez)
-    ULTIMO_SOCORRO["lido"] = True
+    return jsonify({"novo": True, "count": len(pendentes), "socorros": pendentes}), 200
 
-    return jsonify({
-        "novo": True,
-        "cooperado": ULTIMO_SOCORRO["cooperado_nome"],
-        "mensagem": ULTIMO_SOCORRO["mensagem"] or "",
-        "momento": ULTIMO_SOCORRO["momento"],
-    }), 200
 
-# =========================================================
-# ADMIN — visualizar / baixar comprovante (foto) da entrega
-# =========================================================
-@app.get("/admin/entrega/<int:entrega_id>/comprovante")
-def admin_ver_comprovante(entrega_id):
+@app.post("/admin_socorro_marcar_lido")
+def admin_socorro_marcar_lido():
     if not session.get("is_admin") and not session.get("is_master"):
-        abort(403)
-    info = comprovante_info(entrega_id)
-    if not info or not info.get("filename"):
-        abort(404)
-    fp = os.path.join(COMPROVANTE_DIR, info["filename"])
-    if not os.path.exists(fp):
-        abort(404)
-    # envia inline (abre no navegador)
-    return send_file(fp)
+        return jsonify(ok=False, error="forbidden"), 403
 
-@app.get("/admin/entrega/<int:entrega_id>/comprovante/download")
-def admin_baixar_comprovante(entrega_id):
-    if not session.get("is_admin") and not session.get("is_master"):
-        abort(403)
-    info = comprovante_info(entrega_id)
-    if not info or not info.get("filename"):
-        abort(404)
-    fp = os.path.join(COMPROVANTE_DIR, info["filename"])
-    if not os.path.exists(fp):
-        abort(404)
-    return send_file(fp, as_attachment=True, download_name=info["filename"])
+    data = request.get_json(silent=True) or {}
+    sid = data.get("id", None)
+    marcar_todos = bool(data.get("all", False))
+
+    if marcar_todos:
+        for s in SOCORROS_PENDENTES:
+            s["lido"] = True
+        return jsonify(ok=True)
+
+    try:
+        sid = int(sid)
+    except Exception:
+        return jsonify(ok=False, error="id inválido"), 400
+
+    for s in SOCORROS_PENDENTES:
+        if int(s.get("id", -1)) == sid:
+            s["lido"] = True
+            return jsonify(ok=True)
+
+    return jsonify(ok=False, error="socorro não encontrado"), 404
 
 
-# ================================
-# PAINEL DO COOPERADO (ESTILO UBER)
-# ================================
-@app.route('/painel_cooperado')
-def painel_cooperado():
-    # Cooperado logado = precisa ter user_id na sessão E NÃO ser admin
-    if session.get('user_id') is None or session.get('is_admin'):
-        return redirect(url_for('login'))
-
-    user_id = session['user_id']
-
-    inicio = request.args.get('inicio')
-    fim = request.args.get('fim')
-    status_pgto = (request.args.get('status_pgto') or 'todas').lower()
-    todas_datas_flag = (request.args.get('todas_datas') or '') == '1'
-
-    # Base de consultas: entregas desse cooperado
-    base_q = Entrega.query.filter(Entrega.cooperado_id == user_id)
-
-    # ========== CORRIDAS EM ABERTO / EM ANDAMENTO ==========
-    # Qualquer corrida que ainda não esteja finalizada
-    corridas_query = (
-        base_q
-        .filter(
-            (Entrega.status_corrida == None) |
-            (Entrega.status_corrida.in_(['pendente', 'aceita']))
-        )
-        .filter(
-            (Entrega.status == None) |
-            (~func.lower(Entrega.status).in_(['recebido', 'entregue']))
-        )
-        .order_by(Entrega.data_envio.desc())
-    )
-
-    corridas_raw = corridas_query.all()
-
-    def _parse_json_field(raw):
-        """Tenta fazer json.loads, se vier string; se der erro, devolve {}."""
-        if not raw:
-            return {}
-        if isinstance(raw, dict):
-            return raw
-        try:
-            return json.loads(raw)
-        except Exception:
-            return {}
-
-    corridas = []
-    for e in corridas_raw:
-        origem = _parse_json_field(e.origem_json)
-        destino = _parse_json_field(e.destino_json)
-        paradas = _parse_json_field(e.paradas_json)
-
-        origem_endereco = (
-            origem.get('endereco')
-            or origem.get('address')
-            or (origem.get('rua') and f"{origem.get('rua')} {origem.get('numero', '')}".strip())
-            or e.bairro
-            or 'Origem não informada'
-        )
-
-        destino_endereco = (
-            destino.get('endereco')
-            or destino.get('address')
-            or (destino.get('rua') and f"{destino.get('rua')} {destino.get('numero', '')}".strip())
-            or 'Destino não informado'
-        )
-
-        origem_bairro = origem.get('bairro') or ''
-        destino_bairro = destino.get('bairro') or ''
-
-        # Lista simples de paradas intermediárias
-        waypoints = paradas.get('stops') or paradas.get('paradas') or []
-
-        corridas.append({
-            "obj": e,
-            "origem_endereco": origem_endereco,
-            "destino_endereco": destino_endereco,
-            "origem_bairro": origem_bairro,
-            "destino_bairro": destino_bairro,
-            "waypoints": waypoints,
-        })
-
-    # ========== HISTÓRICO (TABELA) ==========
-    query = base_q
-
-    # Filtro por status de pagamento
-    if status_pgto == 'pago':
-        query = query.filter(func.lower(Entrega.status_pagamento) == 'pago')
-    elif status_pgto == 'pendente':
-        query = query.filter(
-            (Entrega.status_pagamento == None) |
-            (func.lower(Entrega.status_pagamento) == 'pendente')
-        )
-
-    # Filtros de data
-    if not todas_datas_flag:
-        hoje_brasil = datetime.now(BRAZIL_TZ).date()
-
-        # Nenhuma data informada -> dia atual
-        if not inicio and not fim:
-            inicio_utc, fim_utc = local_date_window_to_utc_range(hoje_brasil)
-            query = query.filter(
-                Entrega.data_envio >= inicio_utc,
-                Entrega.data_envio <= fim_utc
-            )
-
-        # Data inicial
-        if inicio:
-            di = datetime.strptime(inicio, "%Y-%m-%d").date()
-            inicio_utc, _ = local_date_window_to_utc_range(di)
-            query = query.filter(Entrega.data_envio >= inicio_utc)
-
-        # Data final
-        if fim:
-            df_ = datetime.strptime(fim, "%Y-%m-%d").date()
-            _, fim_utc = local_date_window_to_utc_range(df_)
-            query = query.filter(Entrega.data_envio <= fim_utc)
-
-    # Ordenação e carregamento do cooperado (se precisar no template)
-    entregas = (
-        query
-        .options(joinedload(Entrega.cooperado))
-        .order_by(Entrega.data_envio.desc())
-        .all()
-    )
-
-    # Totais
-    total_geral = sum(float(e.valor or 0) for e in entregas)
-    total_pago = sum(
-        float(e.valor or 0)
-        for e in entregas
-        if (e.status_pagamento or '').lower() == 'pago'
-    )
-    total_pendente = max(0.0, total_geral - total_pago)
-
-    return render_template(
-        'painel_cooperado.html',
-        entregas=entregas,
-        corridas=corridas,
-        total_geral=total_geral,
-        total_pago=total_pago,
-        total_pendente=total_pendente,
-        request=request,
-        to_brasilia=to_brasilia,
-        status_pgto=status_pgto,
-        ano_atual=datetime.now(BRAZIL_TZ).year,
-        mes_atual=datetime.now(BRAZIL_TZ).month,
-        meses_ano=[
-            {'num':1,'nome':'Janeiro'},{'num':2,'nome':'Fevereiro'},{'num':3,'nome':'Março'},{'num':4,'nome':'Abril'},
-            {'num':5,'nome':'Maio'},{'num':6,'nome':'Junho'},{'num':7,'nome':'Julho'},{'num':8,'nome':'Agosto'},
-            {'num':9,'nome':'Setembro'},{'num':10,'nome':'Outubro'},{'num':11,'nome':'Novembro'},{'num':12,'nome':'Dezembro'},
-        ],
-    )
 
 @app.route("/cooperado/verificar_nova_entrega")
 def cooperado_verificar_nova_entrega():
@@ -3517,10 +3333,13 @@ def api_mobile_cooperado_corridas():
 
 # variável global bem simples pra sinalizar um novo socorro
 ULTIMO_SOCORRO = None
+SOCORROS_PENDENTES = []
+SOCORRO_SEQ = 0
 
 @app.route("/cooperado_socorro", methods=["POST"])
+
 def cooperado_socorro():
-    global ULTIMO_SOCORRO
+    global SOCORROS_PENDENTES, SOCORRO_SEQ
 
     data = request.get_json() or {}
     tipo = data.get("tipo")
@@ -3534,47 +3353,21 @@ def cooperado_socorro():
 
     agora_brt = datetime.now(BRAZIL_TZ)
 
-    ULTIMO_SOCORRO = {
+    SOCORRO_SEQ += 1
+    soc = {
+        "id": SOCORRO_SEQ,
         "cooperado_id": cooperado_id,
         "cooperado_nome": cooperado_nome,
-        # o que o admin_novo_socorro espera:
         "mensagem": f"{tipo}: {detalhes}" if detalhes else tipo,
         "momento": agora_brt.strftime("%d/%m/%Y %H:%M"),
         "timestamp": datetime.utcnow().isoformat(),
         "lido": False,
     }
 
-    socketio.emit("socorro_novo", ULTIMO_SOCORRO, broadcast=True)
+    SOCORROS_PENDENTES.append(soc)
+    socketio.emit("socorro_novo", soc, broadcast=True)
 
     return jsonify({"ok": True})
-
-# ================================
-# CRUD de COOPERADO (mantidos)
-# ================================
-@app.route('/cooperados/cadastrar', methods=['GET', 'POST'])
-def cadastrar_cooperado():
-    if not session.get('is_admin'):
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        nome = request.form.get('nome')
-        senha = request.form.get('senha')
-        if nome and senha:
-            if Cooperado.query.filter_by(nome=nome).first():
-                flash('Já existe um cooperado com esse nome!')
-            else:
-                novo = Cooperado(nome=nome)
-                novo.set_senha(senha)
-                db.session.add(novo)
-                db.session.commit()
-                flash('Cooperado cadastrado com sucesso!')
-        else:
-            flash('Preencha todos os campos.')
-        return redirect(url_for('cadastrar_cooperado'))
-
-    cooperados = Cooperado.query.order_by(Cooperado.nome).all()
-    return render_template('cadastrar_cooperado.html', cooperados=cooperados)
-
 
 @app.route('/cooperados/<int:coop_id>/atualizar', methods=['POST'])
 def atualizar_cooperado(coop_id):
@@ -5666,104 +5459,50 @@ def toggle_pagamento(id):
     return jsonify(ok=True, status_pagamento=novo)
 
 
-@app.get('/cooperado/api/ganhos')
-def api_ganhos():
-    if session.get('user_id') is None or session.get('is_admin'):
-        return jsonify(ok=False, error='unauthorized'), 401
 
-    cooperado_id = int(session.get('user_id'))
-    hoje_local = datetime.now(BRAZIL_TZ).date()
-    ano = request.args.get('ano', type=int) or hoje_local.year
-    mes = request.args.get('mes', type=int) or hoje_local.month
-
-    # janela do mês (em BRT) -> UTC range
-    first = date(ano, mes, 1)
-    # último dia do mês
-    if mes == 12:
-        last = date(ano + 1, 1, 1) - timedelta(days=1)
-    else:
-        last = date(ano, mes + 1, 1) - timedelta(days=1)
-
-    ini_utc, _ = local_date_window_to_utc_range(first)
-    _, fim_utc = local_date_window_to_utc_range(last)
-
-    q = Entrega.query.filter(
-        Entrega.cooperado_id == cooperado_id,
-        Entrega.data_envio >= ini_utc,
-        Entrega.data_envio <= fim_utc,
-    )
-
-    entregas = q.all()
-    total_mes = sum(float(e.valor or 0) for e in entregas)
-    total_pago_mes = sum(float(e.valor or 0) for e in entregas if (e.status_pagamento or '').lower() == 'pago')
-    total_pendente_mes = max(0.0, total_mes - total_pago_mes)
-
-    # ano atual
-    first_y = date(ano, 1, 1)
-    last_y = date(ano, 12, 31)
-    ini_y, _ = local_date_window_to_utc_range(first_y)
-    _, fim_y = local_date_window_to_utc_range(last_y)
-
-    qy = Entrega.query.filter(
-        Entrega.cooperado_id == cooperado_id,
-        Entrega.data_envio >= ini_y,
-        Entrega.data_envio <= fim_y,
-    )
-    ent_ano = qy.all()
-    total_ano = sum(float(e.valor or 0) for e in ent_ano)
-    total_pago_ano = sum(float(e.valor or 0) for e in ent_ano if (e.status_pagamento or '').lower() == 'pago')
-    total_pendente_ano = max(0.0, total_ano - total_pago_ano)
-
-    return jsonify(ok=True,
-                   ano=ano, mes=mes,
-                   total_mes=round(total_mes, 2),
-                   pago_mes=round(total_pago_mes, 2),
-                   pendente_mes=round(total_pendente_mes, 2),
-                   total_ano=round(total_ano, 2),
-                   pago_ano=round(total_pago_ano, 2),
-                   pendente_ano=round(total_pendente_ano, 2),
-                   qtd_mes=len(entregas),
-                   qtd_ano=len(ent_ano))
-
-
-
-@app.post('/cooperado/marcar_entregue/<int:id>')
+@app.route('/cooperado/marcar_entregue/<int:id>', methods=['POST'])
 def cooperado_marcar_entregue(id):
-    """Marca entrega como recebida/entregue.
-    Agora aceita:
-      - JSON: {recebido_por: "..."} (compatível com o que já existia)
-      - multipart/form-data: recebido_por (opcional) + foto (opcional)
-    Regra: precisa ter **nome** OU **foto**.
-    """
     e = Entrega.query.get_or_404(id)
     _assert_entrega_do_cooperado(e)
 
+    # Aceita JSON (antigo) ou multipart/form-data (novo com foto)
     recebido_por = ''
-    foto_fs = None
+    foto_file = None
 
-    # 1) Se veio upload (FormData), pega do form/files
-    if request.files:
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
         recebido_por = (request.form.get('recebido_por') or '').strip()
-        foto_fs = request.files.get('foto')
+        foto_file = request.files.get('foto')
     else:
-        # 2) Compatibilidade com JSON antigo
         payload = request.get_json(silent=True) or {}
         recebido_por = (payload.get('recebido_por') or '').strip()
 
-    if not recebido_por and not foto_fs:
-        return jsonify(ok=False, error='Informe o nome de quem recebeu OU envie uma foto.'), 400
-
-    # salva foto (se veio)
-    if foto_fs and getattr(foto_fs, "filename", ""):
-        try:
-            _salvar_comprovante(e.id, foto_fs)
-        except Exception:
-            return jsonify(ok=False, error='Não foi possível salvar a foto agora.'), 500
+    has_foto = bool(foto_file and getattr(foto_file, 'filename', ''))
+    if not recebido_por and not has_foto:
+        return jsonify(ok=False, error='Informe "Recebido por" OU envie uma foto (opcional).'), 400
 
     e.status = 'recebido'
-    e.recebido_por = recebido_por or (e.recebido_por or None)
+    if recebido_por:
+        e.recebido_por = recebido_por
     db.session.commit()
-    return jsonify(ok=True, tem_foto=comprovante_existe(e.id))
+
+    if has_foto:
+        filename = secure_filename(foto_file.filename or '')
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ('.jpg', '.jpeg', '.png', '.webp'):
+            return jsonify(ok=False, error='Formato de foto inválido. Use JPG/PNG/WEBP.'), 400
+
+        unique = f"entrega_{e.id}_{uuid.uuid4().hex}{ext}"
+        save_path = os.path.join(FOTOS_RECEBIMENTO_DIR, unique)
+        try:
+            foto_file.save(save_path)
+        except Exception:
+            return jsonify(ok=False, error='Não foi possível salvar a foto.'), 500
+
+        rec = EntregaFoto(entrega_id=e.id, filename=unique)
+        db.session.add(rec)
+        db.session.commit()
+
+    return jsonify(ok=True)
 
 
 @app.get('/cooperado/api/entrega_atribuida')
@@ -6884,117 +6623,6 @@ def handle_atualizar_entrega(data):
         },
         room=f"entrega_{entrega_id}",
     )
-
-
-
-# =========================================================
-# LINK DE RASTREIO (por entrega) — desativa ao concluir
-# =========================================================
-@app.get("/rastreio/<token>")
-def rastreio_publico(token):
-    try:
-        data = ler_token_rastreio(token)
-        entrega_id = int(data.get("entrega_id"))
-    except Exception:
-        return "<h2>Link inválido.</h2>", 400
-
-    e = Entrega.query.get(entrega_id)
-    if not e:
-        return "<h2>Entrega não encontrada.</h2>", 404
-
-    st = (e.status or "").lower()
-    if st in ["recebido", "entregue", "concluido", "concluída", "concluida"]:
-        return "<h2>Rastreio encerrado: entrega concluída.</h2>", 410
-
-    coop_nome = (e.cooperado.nome if getattr(e, "cooperado", None) else "Cooperado")
-    html = f"""<!doctype html>
-<html lang="pt-br"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rastreio — Entrega #{entrega_id}</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-  body{{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b1220;color:#fff}}
-  header{{padding:10px 12px;background:linear-gradient(90deg,#0b2cc2,#1a47ff);font-weight:800}}
-  #map{{height: calc(100vh - 54px); width:100%}}
-  .small{{opacity:.9;font-weight:700}}
-</style>
-</head><body>
-<header>Rastreio em tempo real — Entrega #{entrega_id} <span class="small">({coop_nome})</span></header>
-<div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  const token = {json.dumps(token)};
-  const map = L.map('map', {{ zoomControl:true }}).setView([-5.7945,-35.2110], 13);
-  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(map);
-  let marker = null;
-
-  async function pull(){{
-    try{{
-      const r = await fetch('/api/rastreio_pos/'+encodeURIComponent(token), {{cache:'no-store'}});
-      if(r.status === 410){{
-        document.body.innerHTML = '<h2 style="padding:16px">Rastreio encerrado: entrega concluída.</h2>';
-        return;
-      }}
-      const data = await r.json();
-      if(!data.ok) return;
-
-      const lat = data.lat, lng = data.lng;
-      if(typeof lat !== 'number' || typeof lng !== 'number') return;
-
-      const txt = (data.cooperado || '') + ' • ' + (data.quando_local || '');
-      if(!marker){{
-        marker = L.circleMarker([lat,lng], {{
-          radius: 7,
-          weight: 2,
-          fillOpacity: 0.8
-        }}).addTo(map);
-        marker.bindTooltip(txt, {{direction:'top', sticky:true}});
-        map.setView([lat,lng], 15);
-      }} else {{
-        marker.setLatLng([lat,lng]);
-        marker.setTooltipContent(txt);
-      }}
-    }}catch(e){{}}
-  }}
-  pull();
-  setInterval(pull, 5000);
-</script>
-</body></html>"""
-    return html
-
-@app.get("/api/rastreio_pos/<token>")
-def api_rastreio_pos(token):
-    try:
-        data = ler_token_rastreio(token)
-        entrega_id = int(data.get("entrega_id"))
-    except Exception:
-        return jsonify(ok=False, error="invalid_token"), 400
-
-    e = Entrega.query.get(entrega_id)
-    if not e:
-        return jsonify(ok=False, error="not_found"), 404
-
-    st = (e.status or "").lower()
-    if st in ["recebido", "entregue", "concluido", "concluída", "concluida"]:
-        return jsonify(ok=False, error="ended"), 410
-
-    coop = getattr(e, "cooperado", None)
-    if not coop or coop.last_lat is None or coop.last_lng is None:
-        return jsonify(ok=True, lat=None, lng=None, cooperado=(coop.nome if coop else None), quando_local=None)
-
-    when_local = None
-    try:
-        if coop.last_ping:
-            when_local = to_brasilia(coop.last_ping).strftime("%d/%m/%Y %H:%M:%S")
-    except Exception:
-        when_local = None
-
-    return jsonify(ok=True,
-                   lat=float(coop.last_lat),
-                   lng=float(coop.last_lng),
-                   cooperado=coop.nome,
-                   quando_local=when_local)
 
 
 if __name__ == '__main__':

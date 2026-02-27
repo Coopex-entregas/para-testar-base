@@ -1844,64 +1844,7 @@
 +'    .wrap{min-height:100vh; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:10px 8px 18px;}'
 +'    @media print { .actions{display:none} body{background:#fff} }'
 +'  </style>'
-+'
-<!-- ====== PRINT TM-T20X (80mm) + IMPRIMIR SÓ O CUPOM ====== -->
-<style id="tm20x-print-style">
-  /* Área do cupom (ajuste o id se necessário) */
-  #cupom-print, #cupom, .cupom-print { 
-    width: 80mm;
-    max-width: 80mm;
-    margin: 0 auto;
-    font-family: Consolas, "Courier New", monospace;
-  }
-
-  @media print {
-    @page { size: 80mm auto; margin: 0; }
-
-    html, body {
-      width: 80mm;
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #fff !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    /* ESCONDE TUDO */
-    body * { visibility: hidden !important; }
-
-    /* MOSTRA SÓ O CUPOM */
-    #cupom-print, #cupom-print * { visibility: visible !important; }
-    #cupom, #cupom * { visibility: visible !important; }
-    .cupom-print, .cupom-print * { visibility: visible !important; }
-
-    /* POSICIONA O CUPOM NO TOPO */
-    #cupom-print, #cupom, .cupom-print {
-      position: fixed !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 80mm !important;
-      max-width: 80mm !important;
-      margin: 0 !important;
-      padding: 2mm 2mm !important;
-      font-size: 12px !important;
-      line-height: 1.15 !important;
-    }
-
-    /* LOGO */
-    #cupom-print img, #cupom img, .cupom-print img {
-      max-width: 60mm !important;
-      height: auto !important;
-      display: block !important;
-      margin: 0 auto 2mm auto !important;
-    }
-
-    /* remove sombras */
-    * { box-shadow: none !important; text-shadow: none !important; }
-  }
-</style>
-
-</head>'
++'</head>'
 +'<body>'
 +'  <div class="wrap">'
 +'    <div class="cupom">'
@@ -1961,9 +1904,48 @@
     })();
   </script>
 
+
+<script id="tm20x_iframe_printer">
+  // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
+  window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
+    try{
+      var iframe = document.getElementById('tm20x_print_iframe');
+      if(!iframe){
+        iframe = document.createElement('iframe');
+        iframe.id = 'tm20x_print_iframe';
+        iframe.style.position='fixed';
+        iframe.style.right='0';
+        iframe.style.bottom='0';
+        iframe.style.width='0';
+        iframe.style.height='0';
+        iframe.style.border='0';
+        iframe.style.opacity='0';
+        iframe.style.pointerEvents='none';
+        document.body.appendChild(iframe);
+      }
+      var w = iframe.contentWindow;
+      var d = iframe.contentDocument || w.document;
+      d.open(); d.write(htmlDoc); d.close();
+      setTimeout(function(){
+        try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
+      }, 250);
+    }catch(e){
+      console.error(e);
+      alert('Erro ao imprimir o cupom.');
+    }
+  };
+</script>
+
 </body>'
 +'</html>';
 
+      // Preferência: imprimir via IFRAME (não precisa pop-up)
+      if (window.__printHtmlTM20X) {
+        window.__printHtmlTM20X(html);
+        return;
+      }
+
+      // Fallback: pop-up (se o navegador permitir)
       try{
         var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         var url = URL.createObjectURL(blob);
@@ -1975,19 +1957,7 @@
         try{ URL.revokeObjectURL(url); }catch(e){}
       }catch(e){}
 
-      var win = null;
-      try { win = window.open('about:blank', '_blank', 'width=480,height=800'); } catch(e){}
-      if (win && !win.closed) {
-        try { win.opener = null; } catch(e){}
-        try{
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-          return;
-        }catch(e){}
-      }
-
-      showToast('<strong>Pop-up bloqueado.</strong> Libere pop-ups para imprimir.');
+      alert('Não foi possível abrir a impressão. Verifique pop-ups do navegador e a impressora TM-T20X.');
     }
 
     function abrirMapaTelaCheia() {
@@ -2338,78 +2308,35 @@
   </script>
 
 
-<script id="tm20x-print-js">
-(function(){
-  function getCupomElement() {
-    return document.querySelector('#cupom-print') ||
-           document.querySelector('#cupom') ||
-           document.querySelector('.cupom-print');
-  }
-
-  window.imprimirCupomTM20X = function() {
-    const el = getCupomElement();
-    if (!el) {
-      alert('Não encontrei a área do cupom. Garanta que o cupom esteja dentro de uma div com id="cupom-print" (ou id="cupom" / class="cupom-print").');
-      return;
+<script id="tm20x_iframe_printer">
+  // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
+  window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
+    try{
+      var iframe = document.getElementById('tm20x_print_iframe');
+      if(!iframe){
+        iframe = document.createElement('iframe');
+        iframe.id = 'tm20x_print_iframe';
+        iframe.style.position='fixed';
+        iframe.style.right='0';
+        iframe.style.bottom='0';
+        iframe.style.width='0';
+        iframe.style.height='0';
+        iframe.style.border='0';
+        iframe.style.opacity='0';
+        iframe.style.pointerEvents='none';
+        document.body.appendChild(iframe);
+      }
+      var w = iframe.contentWindow;
+      var d = iframe.contentDocument || w.document;
+      d.open(); d.write(htmlDoc); d.close();
+      setTimeout(function(){
+        try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
+      }, 250);
+    }catch(e){
+      console.error(e);
+      alert('Erro ao imprimir o cupom.');
     }
-
-    // Preferido: imprimir só o HTML do cupom em uma janela limpa
-    const cupomHtml = el.outerHTML;
-
-    const w = window.open('', '_blank', 'width=420,height=900');
-    if (!w) {
-      // fallback: usa CSS @media print que esconde o resto da tela
-      window.print();
-      return;
-    }
-
-    w.document.open();
-    w.document.write(`<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cupom - TM-T20X</title>
-<style>
-  @page { size: 80mm auto; margin: 0; }
-  html, body { width: 80mm; margin:0; padding:0; background:#fff; }
-  body { font-family: Consolas, "Courier New", monospace; }
-  #cupom-print, #cupom, .cupom-print {
-    width: 80mm; max-width: 80mm;
-    padding: 2mm 2mm;
-    font-size: 12px;
-    line-height: 1.15;
-  }
-  img { max-width: 60mm; height:auto; display:block; margin:0 auto 2mm auto; }
-  .no-break { page-break-inside: avoid; break-inside: avoid; }
-</style>
-</head>
-<body>
-${cupomHtml}
-<script>
-  window.onload = function(){
-    setTimeout(function(){
-      window.print();
-      setTimeout(function(){ window.close(); }, 400);
-    }, 150);
   };
-</script>
-</body>
-</html>`);
-    w.document.close();
-  };
-
-  // Se existir um botão antigo chamando imprimirCupom(), redireciona:
-  if (typeof window.imprimirCupom === 'function') {
-    const old = window.imprimirCupom;
-    window.imprimirCupom = function(){
-      try { window.imprimirCupomTM20X(); } catch(e){ old(); }
-    }
-  } else {
-    // cria alias para uso no HTML
-    window.imprimirCupom = window.imprimirCupomTM20X;
-  }
-})();
 </script>
 
 </body>

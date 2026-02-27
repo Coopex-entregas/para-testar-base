@@ -685,7 +685,7 @@
       height:34px;
       border-radius:14px;
       background:rgba(255,255,255,.92);
-      border:2px solid rgba(255,255,255,.85);
+      border:1px solid rgba(255,255,255,.75);
       box-shadow:0 10px 22px rgba(0,0,0,.18);
       transform: translate3d(0,0,0);
     }
@@ -721,6 +721,29 @@
     }
     .cluster-badge.online{ background: #10b981; }
     .cluster-badge.offline{ background: #ef4444; }
+  
+    /* ===== FOTO COMPROVANTE ===== */
+    .foto-btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:30px;height:30px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.10);
+      text-decoration:none;
+      font-weight:900;
+      line-height:1;
+    }
+    .foto-btn.foto-ok{ background:rgba(16,185,129,.18); border-color:rgba(16,185,129,.55); }
+    .foto-btn.foto-no{ background:rgba(239,68,68,.16); border-color:rgba(239,68,68,.55); opacity:.95; }
+    .foto-dl{
+      margin-left:6px;
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px;height:28px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.10);
+      text-decoration:none;
+      font-weight:900;
+    }
+
   </style>
 </head>
 
@@ -953,6 +976,7 @@
                   <th>Status</th>
                   <th>Pagamento</th>
                   <th>Recebido por</th>
+                  <th>Foto</th>
                   <th>Rastreio</th>
                   <th>Ações</th>
                 </tr>
@@ -1032,10 +1056,22 @@
 
                   <td title="{{ e.recebido_por or '-' }}">{{ e.recebido_por or '-' }}</td>
 
+                  <td style="text-align:center">
+                    {% if tem_comprovante(e.id) %}
+                      <a class="foto-btn foto-ok" title="Ver foto" target="_blank" rel="noopener" href="{{ url_for('admin_ver_comprovante', entrega_id=e.id) }}">📷</a>
+                      <a class="foto-dl" title="Baixar" href="{{ url_for('admin_baixar_comprovante', entrega_id=e.id) }}">⬇</a>
+                    {% else %}
+                      <span class="foto-btn foto-no" title="Sem foto">📷</span>
+                    {% endif %}
+                  </td>
+
                   <td>
-                    {% if tem_coop %}
-                      {% set rastreio_link = url_for('rastreamento', codigo=e.id, motoboy_id=e.cooperado.id, _external=True) %}
+                    {% set st_ent = (e.status or '')|lower %}
+                    {% if tem_coop and st_ent not in ['recebido','entregue'] %}
+                      {% set rastreio_link = url_for('rastreio_publico', token=token_rastreio(e.id), _external=True) %}
                       <a href="{{ rastreio_link }}" target="_blank" class="act-open" rel="noopener">Abrir</a>
+                    {% elif tem_coop %}
+                      <span class="small">Encerrado</span>
                     {% else %}
                       <span class="small">—</span>
                     {% endif %}
@@ -1665,7 +1701,31 @@
 +'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
 +'    </div>'
 +'  </div>'
-+'</body>'
++'
+  <!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
+      }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
+</body>'
 +'</html>';
 
       try{
@@ -1740,15 +1800,7 @@
       // grupo com cluster:
       // - NÃO abre modal ao clicar
       // - DESLIGA agrupamento a partir do zoom 15 (assim, ao aproximar, não volta a reagrupar sozinho)
-      var cluster = L.markerClusterGroup({
-        chunkedLoading: true,
-        maxClusterRadius: 55,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        disableClusteringAtZoom: 15,
-        iconCreateFunction: function (cl) {
-          var children = cl.getAllChildMarkers();
+      var cluster = L.layerGroup();
           var hasOnline = false;
           for (var i=0;i<children.length;i++){
             var st = children[i].__status || 'offline';
@@ -1909,6 +1961,7 @@
             marker.__data = m;
 
             marker.bindPopup(popupHtml(m, st), { closeButton:true, autoPan:true });
+            marker.bindTooltip(popupHtml(m, st), {direction:'top', sticky:true, opacity:0.95});
 
             cluster.addLayer(marker);
             motoboyMarkers[m.id] = marker;
@@ -1970,5 +2023,29 @@
       setInterval(atualizarDoServidor, 5000);
     });
   </script>
+
+  <!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
+      }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
 </body>
 </html>

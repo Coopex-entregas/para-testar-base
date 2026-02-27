@@ -2850,31 +2850,57 @@ def admin():
 
 @app.route("/admin_novo_socorro")
 def admin_novo_socorro():
+    """Rota que o admin consulta (polling) para saber se há socorros pendentes.
+    Importante: **não** marca como lido aqui. Só marca quando o admin clicar no X.
     """
-    Rota que o PAINEL DA SUPERVISÃO (admin) fica consultando de tempos em tempos.
-    Se tiver um socorro não lido, devolve os dados.
-    Não tem HTML, só JSON.
-    """
-
-    # MESMA regra de permissão que você usa no /admin
-    # (se no seu app for outro campo, troque "is_admin" por ele)
     if not session.get("is_admin") and not session.get("is_master"):
         abort(403)
 
-    global ULTIMO_SOCORRO
-    if not ULTIMO_SOCORRO or ULTIMO_SOCORRO.get("lido"):
-        # não tem socorro novo
-        return jsonify({"novo": False}), 200
+    global SOCORRO_QUEUE
 
-    # marca como lido (só dispara uma vez)
-    ULTIMO_SOCORRO["lido"] = True
+    pendentes = [s for s in (SOCORRO_QUEUE or []) if not s.get("lido")]
+    if not pendentes:
+        return jsonify({"novo": False, "count": 0}), 200
 
+    ultimo = pendentes[-1]
     return jsonify({
         "novo": True,
-        "cooperado": ULTIMO_SOCORRO["cooperado_nome"],
-        "mensagem": ULTIMO_SOCORRO["mensagem"] or "",
-        "momento": ULTIMO_SOCORRO["momento"],
+        "count": len(pendentes),
+        "id": ultimo.get("id"),
+        "cooperado": ultimo.get("cooperado_nome"),
+        "mensagem": ultimo.get("mensagem") or "",
+        "momento": ultimo.get("momento"),
     }), 200
+
+
+
+@app.post("/admin_socorro_marcar_lido")
+def admin_socorro_marcar_lido():
+    """Admin confirma que viu o socorro (clicou no X)."""
+    if not session.get("is_admin") and not session.get("is_master"):
+        abort(403)
+
+    global SOCORRO_QUEUE
+
+    data = request.get_json(silent=True) or {}
+    sid = data.get("id")
+    try:
+        sid_int = int(sid)
+    except Exception:
+        return jsonify(ok=False, error="id inválido"), 400
+
+    found = False
+    for s in SOCORRO_QUEUE:
+        if int(s.get("id") or 0) == sid_int:
+            s["lido"] = True
+            found = True
+            break
+
+    if not found:
+        return jsonify(ok=False, error="socorro não encontrado"), 404
+
+    pendentes = [s for s in (SOCORRO_QUEUE or []) if not s.get("lido")]
+    return jsonify(ok=True, count=len(pendentes))
 
 # =========================================================
 # ADMIN — visualizar / baixar comprovante (foto) da entrega
@@ -3516,13 +3542,17 @@ def api_mobile_cooperado_corridas():
     return jsonify(ok=True, corridas=corridas)
 
 # variável global bem simples pra sinalizar um novo socorro
-ULTIMO_SOCORRO = None
+SOCORRO_QUEUE = []
+NEXT_SOCORRO_ID = 1
 
 @app.route("/cooperado_socorro", methods=["POST"])
 def cooperado_socorro():
-    global ULTIMO_SOCORRO
+    """Cooperado pede ajuda (socorro).
+    Guarda em fila global simples para o admin visualizar até marcar como lido.
+    """
+    global SOCORRO_QUEUE, NEXT_SOCORRO_ID
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     tipo = data.get("tipo")
     detalhes = (data.get("detalhes") or "").strip()
 
@@ -3534,19 +3564,25 @@ def cooperado_socorro():
 
     agora_brt = datetime.now(BRAZIL_TZ)
 
-    ULTIMO_SOCORRO = {
+    item = {
+        "id": int(NEXT_SOCORRO_ID),
         "cooperado_id": cooperado_id,
         "cooperado_nome": cooperado_nome,
-        # o que o admin_novo_socorro espera:
-        "mensagem": f"{tipo}: {detalhes}" if detalhes else tipo,
+        "mensagem": f"{tipo}: {detalhes}" if detalhes else str(tipo),
         "momento": agora_brt.strftime("%d/%m/%Y %H:%M"),
         "timestamp": datetime.utcnow().isoformat(),
         "lido": False,
     }
+    NEXT_SOCORRO_ID += 1
+    SOCORRO_QUEUE.append(item)
 
-    socketio.emit("socorro_novo", ULTIMO_SOCORRO, broadcast=True)
+    # emite via socket (se o admin estiver conectado)
+    try:
+        socketio.emit("socorro_novo", item, broadcast=True)
+    except Exception:
+        pass
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "id": item["id"]})
 
 # ================================
 # CRUD de COOPERADO (mantidos)
@@ -3749,7 +3785,7 @@ def editar_cliente(id):
     endereco = (request.form.get('endereco') or '').strip()
 
     if not nome:
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error='Informe o nome do cliente.'), 400
         flash('Informe o nome do cliente.')
         return redirect(url_for('clientes'))
@@ -3759,7 +3795,7 @@ def editar_cliente(id):
         Cliente.id != id
     ).first()
     if existe:
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error='Já existe outro cliente com esse nome.'), 400
         flash('Já existe outro cliente com esse nome.')
         return redirect(url_for('clientes'))
@@ -3770,7 +3806,7 @@ def editar_cliente(id):
     cl.endereco = endereco or None
     db.session.commit()
 
-    if request.headers.get('X-Requested-With') == 'fetch':
+    if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
         aggs = (
             db.session.query(
                 Entrega.cliente.label('cli'),
@@ -3810,7 +3846,7 @@ def excluir_cliente(id):
     db.session.delete(cl)
     db.session.commit()
 
-    if request.headers.get('X-Requested-With') == 'fetch':
+    if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
         return ("", 204)
     flash('Cliente excluído.')
     return redirect(url_for('clientes'))
@@ -4230,7 +4266,7 @@ def mapa_motoboys():
             })
 
     # 👇 Se for chamada via fetch (admin embutido) → JSON
-    if request.headers.get('X-Requested-With') == 'fetch':
+    if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
         resp = jsonify(motoboys_js)
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         return resp
@@ -4320,6 +4356,74 @@ def api_update_entrega_valor(entrega_id):
     emitir_atualizacao_entrega(e, "editada")
 
     return jsonify({"ok": True, "id": e.id, "valor": float(e.valor)}), 200
+
+
+@app.patch("/api/entregas/<int:entrega_id>/inline")
+def api_update_entrega_inline(entrega_id):
+    """Atualização inline (admin) para edição rápida na tabela.
+    Aceita JSON com qualquer combinação:
+      - valor (string/number)
+      - cooperado_id (int ou '' para remover)
+      - status (string)
+      - status_pagamento (string)
+    """
+    if not session.get("is_admin") and not session.get("is_master"):
+        return jsonify(ok=False, error="unauthorized"), 401
+
+    e = Entrega.query.get_or_404(entrega_id)
+    data = request.get_json(silent=True) or {}
+
+    changed = False
+
+    if "valor" in data:
+        try:
+            novo_valor = _parse_money_to_float(data.get("valor"))
+            if novo_valor is not None:
+                e.valor = float(novo_valor)
+                changed = True
+        except Exception:
+            return jsonify(ok=False, error="valor inválido"), 400
+
+    if "cooperado_id" in data:
+        cid = data.get("cooperado_id")
+        if cid in (None, "", 0, "0"):
+            e.cooperado_id = None
+            changed = True
+        else:
+            try:
+                cid_int = int(cid)
+            except Exception:
+                return jsonify(ok=False, error="cooperado_id inválido"), 400
+            coop = Cooperado.query.get(cid_int)
+            if not coop:
+                return jsonify(ok=False, error="cooperado não encontrado"), 404
+            e.cooperado_id = cid_int
+            changed = True
+
+    if "status" in data:
+        st = (data.get("status") or "").strip().lower()
+        if st:
+            e.status = st
+            changed = True
+
+    if "status_pagamento" in data:
+        sp = (data.get("status_pagamento") or "").strip().lower()
+        if sp:
+            e.status_pagamento = sp
+            changed = True
+
+    if changed:
+        db.session.commit()
+
+    return jsonify(
+        ok=True,
+        entrega_id=e.id,
+        valor=float(e.valor or 0),
+        cooperado_id=e.cooperado_id,
+        cooperado_nome=(e.cooperado.nome if getattr(e, "cooperado", None) else None),
+        status=e.status,
+        status_pagamento=e.status_pagamento,
+    )
 
 
 @app.route('/clonar_entrega/<int:id>', methods=['POST'])
@@ -6206,7 +6310,7 @@ def importar_clientes():
 
     f = request.files.get('arquivo')
     if not f or not f.filename:
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error="Envie um arquivo (.xlsx ou .csv)."), 400
         flash("Envie um arquivo (.xlsx ou .csv).")
         return redirect(url_for('clientes'))
@@ -6219,7 +6323,7 @@ def importar_clientes():
             raise ValueError("Arquivo vazio.")
     except Exception as e:
         msg = f"Falha ao ler upload: {e}"
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error=msg), 400
         flash(msg)
         return redirect(url_for('clientes'))
@@ -6258,7 +6362,7 @@ def importar_clientes():
 
     if df_in is None:
         msg = "Não consegui ler o arquivo. " + (" | ".join(load_errors) if load_errors else "")
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error=msg), 400
         flash(msg)
         return redirect(url_for('clientes'))
@@ -6284,7 +6388,7 @@ def importar_clientes():
         missing.append("Telefone/Número")
     if missing:
         msg = f"Cabeçalho ausente: {', '.join(missing)}. Colunas recebidas: {list(df_in.columns)}"
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error=msg), 400
         flash(msg)
         return redirect(url_for('clientes'))
@@ -6363,12 +6467,12 @@ def importar_clientes():
         msg = "Erro ao salvar no banco."
         if app.debug:
             msg += f" Detalhes: {e}"
-        if request.headers.get('X-Requested-With') == 'fetch':
+        if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
             return jsonify(ok=False, error=msg), 500
         flash(msg)
         return redirect(url_for('clientes'))
 
-    if request.headers.get('X-Requested-With') == 'fetch':
+    if request.headers.get('X-Requested-With') == 'fetch' or request.args.get('format') == 'json' or (request.accept_mimetypes and request.accept_mimetypes.best == 'application/json'):
         return jsonify(
             ok=True,
             adicionados=adicionados,

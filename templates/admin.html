@@ -776,6 +776,19 @@
     .socorro-x{border:none; background:rgba(255,255,255,.2); color:#fff; font-size:22px; width:38px; height:38px; border-radius:12px; cursor:pointer; font-weight:900}
     .socorro-x:hover{background:rgba(255,255,255,.28)}
 
+
+/* MAPA: modo tela cheia (fallback se Fullscreen API falhar) */
+.map-card.fullscreen {
+  position: fixed;
+  top: 12px; left: 12px; right: 12px; bottom: 12px;
+  z-index: 99999;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.map-card.fullscreen #map-coopex {
+  height: calc(100vh - 120px) !important;
+}
+
 </style>
 </head>
 
@@ -1831,7 +1844,64 @@
 +'    .wrap{min-height:100vh; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:10px 8px 18px;}'
 +'    @media print { .actions{display:none} body{background:#fff} }'
 +'  </style>'
-+'</head>'
++'
+<!-- ====== PRINT TM-T20X (80mm) + IMPRIMIR SÓ O CUPOM ====== -->
+<style id="tm20x-print-style">
+  /* Área do cupom (ajuste o id se necessário) */
+  #cupom-print, #cupom, .cupom-print { 
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0 auto;
+    font-family: Consolas, "Courier New", monospace;
+  }
+
+  @media print {
+    @page { size: 80mm auto; margin: 0; }
+
+    html, body {
+      width: 80mm;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ESCONDE TUDO */
+    body * { visibility: hidden !important; }
+
+    /* MOSTRA SÓ O CUPOM */
+    #cupom-print, #cupom-print * { visibility: visible !important; }
+    #cupom, #cupom * { visibility: visible !important; }
+    .cupom-print, .cupom-print * { visibility: visible !important; }
+
+    /* POSICIONA O CUPOM NO TOPO */
+    #cupom-print, #cupom, .cupom-print {
+      position: fixed !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 80mm !important;
+      max-width: 80mm !important;
+      margin: 0 !important;
+      padding: 2mm 2mm !important;
+      font-size: 12px !important;
+      line-height: 1.15 !important;
+    }
+
+    /* LOGO */
+    #cupom-print img, #cupom img, .cupom-print img {
+      max-width: 60mm !important;
+      height: auto !important;
+      display: block !important;
+      margin: 0 auto 2mm auto !important;
+    }
+
+    /* remove sombras */
+    * { box-shadow: none !important; text-shadow: none !important; }
+  }
+</style>
+
+</head>'
 +'<body>'
 +'  <div class="wrap">'
 +'    <div class="cupom">'
@@ -1990,6 +2060,16 @@
       var lastData = [];
       var currentFilter = 'all';
 
+      var selectedId = '';
+      var userInteracted = false;
+      var programmaticMove = false;
+
+      // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
+      map.on('zoomstart movestart', function(){
+        if (!programmaticMove) userInteracted = true;
+      });
+
+
       var sel = document.getElementById('mapSearch');
       var filterSel = document.getElementById('mapFilter');
 
@@ -2058,7 +2138,7 @@
             var pts = list
               .filter(function(p){ return (typeof p.lat==='number' && typeof p.lng==='number'); })
               .map(function(p){ return [p.lat, p.lng]; });
-            if (pts.length){
+            if (pts.length && !selectedId && !userInteracted){
               map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
             }
           }
@@ -2086,7 +2166,9 @@
       if (sel){
         sel.addEventListener('change', function(){
           var id = sel.value;
+          selectedId = id || '';
           if (!id) return;
+          programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
           if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
 
@@ -2098,6 +2180,45 @@
           }catch(e){}
         });
       }
+
+
+      // Botão: mapa em tela cheia (tenta Fullscreen API; se falhar, usa CSS fullscreen)
+      var fullBtn = document.getElementById('btnFullMap');
+      function toggleFull(){
+        try{
+          var card = mapEl.closest('.map-card') || mapEl.parentElement;
+          if (!card) card = mapEl;
+          var goFull = !document.fullscreenElement;
+          if (goFull){
+            if (card.requestFullscreen){
+              card.requestFullscreen().then(function(){
+                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 400);
+              }).catch(function(){
+                card.classList.add('fullscreen');
+                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+              });
+            }else{
+              card.classList.add('fullscreen');
+              setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+            }
+          }else{
+            if (document.exitFullscreen){
+              document.exitFullscreen().catch(function(){});
+            }
+            card.classList.remove('fullscreen');
+            setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+          }
+        }catch(e){}
+      }
+      if (fullBtn){
+        fullBtn.addEventListener('click', function(ev){
+          ev.preventDefault();
+          toggleFull();
+        });
+      }
+      document.addEventListener('fullscreenchange', function(){
+        try{ setTimeout(function(){ map.invalidateSize(true); }, 200); }catch(e){}
+      });
 
       async function atualizar(){
         try{
@@ -2215,6 +2336,81 @@
       setInterval(check, 4000);
     })();
   </script>
+
+
+<script id="tm20x-print-js">
+(function(){
+  function getCupomElement() {
+    return document.querySelector('#cupom-print') ||
+           document.querySelector('#cupom') ||
+           document.querySelector('.cupom-print');
+  }
+
+  window.imprimirCupomTM20X = function() {
+    const el = getCupomElement();
+    if (!el) {
+      alert('Não encontrei a área do cupom. Garanta que o cupom esteja dentro de uma div com id="cupom-print" (ou id="cupom" / class="cupom-print").');
+      return;
+    }
+
+    // Preferido: imprimir só o HTML do cupom em uma janela limpa
+    const cupomHtml = el.outerHTML;
+
+    const w = window.open('', '_blank', 'width=420,height=900');
+    if (!w) {
+      // fallback: usa CSS @media print que esconde o resto da tela
+      window.print();
+      return;
+    }
+
+    w.document.open();
+    w.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cupom - TM-T20X</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  html, body { width: 80mm; margin:0; padding:0; background:#fff; }
+  body { font-family: Consolas, "Courier New", monospace; }
+  #cupom-print, #cupom, .cupom-print {
+    width: 80mm; max-width: 80mm;
+    padding: 2mm 2mm;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+  img { max-width: 60mm; height:auto; display:block; margin:0 auto 2mm auto; }
+  .no-break { page-break-inside: avoid; break-inside: avoid; }
+</style>
+</head>
+<body>
+${cupomHtml}
+<script>
+  window.onload = function(){
+    setTimeout(function(){
+      window.print();
+      setTimeout(function(){ window.close(); }, 400);
+    }, 150);
+  };
+</script>
+</body>
+</html>`);
+    w.document.close();
+  };
+
+  // Se existir um botão antigo chamando imprimirCupom(), redireciona:
+  if (typeof window.imprimirCupom === 'function') {
+    const old = window.imprimirCupom;
+    window.imprimirCupom = function(){
+      try { window.imprimirCupomTM20X(); } catch(e){ old(); }
+    }
+  } else {
+    // cria alias para uso no HTML
+    window.imprimirCupom = window.imprimirCupomTM20X;
+  }
+})();
+</script>
 
 </body>
 </html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Trajetos dos motoboys — COOPEX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+         margin:0;background:#eff3ff;color:#0f172a}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    h1{margin:0 0 6px;font-size:1.4rem}
+    .sub{font-size:.85rem;color:#64748b;margin-bottom:10px}
+    .card{background:#fff;border-radius:14px;border:1px solid #cbd5f5;
+          padding:14px 16px;box-shadow:0 6px 24px rgba(15,23,42,.08)}
+    .filtros{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 14px}
+    .filtros label{font-size:.8rem;font-weight:600;color:#1e293b}
+    .filtros input,.filtros select{
+      padding:6px 8px;border-radius:8px;border:1px solid #cbd5f5;
+      font-size:.85rem;min-width:140px
+    }
+    .btn{display:inline-flex;align-items:center;justify-content:center;
+         padding:7px 12px;font-size:.8rem;font-weight:700;border-radius:999px;
+         border:1px solid #1d4ed8;color:#1d4ed8;background:#e0ecff;
+         text-decoration:none;gap:4px;cursor:pointer}
+    .btn.primary{background:#1d4ed8;color:#eef2ff}
+    .btn + .btn{margin-left:6px}
+    .kpis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+    .chip{border-radius:999px;padding:6px 10px;font-size:.8rem;font-weight:700;
+          border:1px solid #cbd5f5;background:#e5edff;color:#1e3a8a}
+    .chip strong{margin-left:4px}
+    .table-wrap{margin-top:8px;border-radius:12px;border:1px solid #cbd5f5;
+                overflow:auto;max-height:520px;background:#fff}
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    th,td{padding:6px 8px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+    th{position:sticky;top:0;background:#1e3a8a;color:#e5edff;text-align:left;z-index:1}
+    tbody tr:nth-child(even) td{background:#f8fafc}
+    .money{font-weight:700}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Trajetos dos motoboys</h1>
+    <div class="sub">
+      Horário agora (Brasília): {{ now().strftime('%d/%m/%Y %H:%M:%S') }}
+    </div>
+
+    <form method="get" class="filtros">
+      <div>
+        <label>Cooperado</label><br>
+        <select name="cooperado_id">
+          <option value="todos">Todos</option>
+          {% for c in cooperados %}
+            <option value="{{ c.id }}"
+              {% if cooperado_id|int == c.id %}selected{% endif %}>
+              {{ c.nome }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Data início</label><br>
+        <input type="date" name="data_inicio" value="{{ data_inicio or '' }}">
+      </div>
+      <div>
+        <label>Data fim</label><br>
+        <input type="date" name="data_fim" value="{{ data_fim or '' }}">
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:6px">
+        <button type="submit" class="btn primary">Filtrar</button>
+        <a class="btn"
+           href="{{ url_for('trajetos_exportar',
+                            cooperado_id=cooperado_id,
+                            data_inicio=data_inicio,
+                            data_fim=data_fim) }}">
+          ⬇ Exportar Excel
+        </a>
+        <a class="btn" href="{{ url_for('admin') }}">↩ Voltar ao painel</a>
+      </div>
+    </form>
+
+    <div class="kpis">
+      <span class="chip">
+        Trajetos no período: <strong>{{ trajetos|length }}</strong>
+      </span>
+      <span class="chip">
+        Total percorrido: <strong>{{ '%.2f'|format(total_km) }} km</strong>
+      </span>
+      <span class="chip">
+        Horas em trajeto: <strong>{{ '%.2f'|format(total_horas) }} h</strong>
+      </span>
+      <span class="chip">
+        Velocidade média geral:
+        <strong>{{ '%.1f'|format(vel_media_geral) }} km/h</strong>
+      </span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Cooperado</th>
+          <th>Início (Brasília)</th>
+          <th>Fim (Brasília)</th>
+          <th>Duração (min)</th>
+          <th>Distância (km)</th>
+          <th>Vel. média (km/h)</th>
+          <th>Origem (lat,lng)</th>
+          <th>Destino (lat,lng)</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in trajetos %}
+          {% set ini = to_brasilia(t.inicio) if t.inicio else None %}
+          {% set fim = to_brasilia(t.fim) if t.fim else None %}
+          <tr>
+            <td>{{ t.cooperado.nome if t.cooperado else '-' }}</td>
+            <td>{{ ini.strftime('%d/%m/%Y %H:%M:%S') if ini else '-' }}</td>
+            <td>{{ fim.strftime('%d/%m/%Y %H:%M:%S') if fim else '-' }}</td>
+            <td>{{ '%.1f'|format((t.duracao_s or 0) / 60.0) }}</td>
+            <td class="money">{{ '%.3f'|format((t.distancia_m or 0.0) / 1000.0) }}</td>
+            <td>{{ '%.1f'|format(t.velocidade_media_kmh or 0.0) }}</td>
+            <td>
+              {% if t.origem_lat is not none and t.origem_lng is not none %}
+                {{ '%.6f'|format(t.origem_lat) }},{{ '%.6f'|format(t.origem_lng) }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if t.destino_lat is not none and t.destino_lng is not none %}
+                {{ '%.6f'|format(t.destino_lat) }},{{ '%.6f'|format(t.destino_lng) }}
+              {% else %}-{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if trajetos|length == 0 %}
+          <tr>
+            <td colspan="8" style="text-align:center;opacity:.7;padding:14px">
+              Nenhum trajeto encontrado para o filtro atual.
+            </td>
+          </tr>
+        {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Coopex — Solicitar</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin
+  />
+
+  <style>
+    :root{
+      --royal:#003399;
+      --royal2:#255BFF;
+      --bg:#F4F7FF;
+      --card:#FFFFFF;
+      --text:#0B1020;
+      --muted:#667085;
+      --line:#D6E2FF;
+
+      --ok:#12B981;
+      --warn:#F59E0B;
+      --bad:#EF4444;
+
+      --shadow: 0 22px 60px rgba(10, 25, 80, .18);
+      --shadow2: 0 12px 30px rgba(10, 25, 80, .12);
+
+      --r20:20px;
+      --r26:26px;
+
+      --tap:52px;
+
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:#0b1020;
+      overflow:hidden;
+      color:var(--text);
+    }
+
+    /* MAP FULL */
+    .surface{
+      position:fixed;
+      inset:0;
+      z-index:1;
+      background:#0b1020;
+    }
+    #map{ width:100%; height:100%; }
+
+    /* TOP BAR */
+    .topbar{
+      position:fixed;
+      left:0; right:0;
+      top:0;
+      padding: calc(12px + var(--safeTop)) 12px 10px;
+      z-index:80;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      pointer-events:none;
+    }
+    .topbar > *{ pointer-events:auto; }
+
+    .pill{
+      display:flex;align-items:center;gap:10px;
+      padding:10px 12px;border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(214,226,255,.85);
+      box-shadow:var(--shadow2);
+      backdrop-filter: blur(10px);
+      user-select:none;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      background:var(--warn);
+      box-shadow:0 0 0 6px rgba(245,158,11,.14);
+    }
+    .pill .meta{ display:flex; flex-direction:column; line-height:1.1; }
+    .pill .meta small{ font-size:11px; font-weight:900; color:var(--muted); letter-spacing:.2px; }
+    .pill .meta strong{ font-size:13px; font-weight:900; color:var(--royal); }
+
+    .iconbtn{
+      width:44px;height:44px;border-radius:16px;border:1px solid rgba(214,226,255,.85);
+      background:rgba(255,255,255,.92);
+      box-shadow:var(--shadow2);
+      display:grid;place-items:center;
+      cursor:pointer;
+      backdrop-filter: blur(10px);
+    }
+    .iconbtn:active{ transform: translateY(1px) scale(.99); }
+    .iconbtn svg{ width:18px;height:18px; fill: var(--royal); }
+
+    /* SHEET */
+    .sheet{
+      position:fixed;
+      left:10px; right:10px;
+      bottom: calc(74px + var(--safeBottom));
+      z-index:90;
+      border-radius: 28px;
+      background: rgba(255,255,255,.96);
+      border:1px solid rgba(214,226,255,.85);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      max-height: calc(100vh - 110px - var(--safeTop) - var(--safeBottom));
+      transform: translateY(62%);
+      transition: transform .18s ease;
+      backdrop-filter: blur(14px);
+    }
+    .sheet.expanded{ transform: translateY(0); }
+
+    .grab{
+      width:56px;height:6px;border-radius:999px;
+      background: rgba(102,112,133,.25);
+      margin: 10px auto 8px;
+      cursor:pointer;
+    }
+
+    .sheet-h{
+      padding: 0 14px 12px;
+      border-bottom:1px solid rgba(214,226,255,.65);
+      background: radial-gradient(520px 240px at 20% 0%, rgba(37,91,255,.14), transparent 60%);
+    }
+    .brand{
+      display:flex;flex-direction:column;gap:2px;line-height:1.1;
+    }
+    .brand .t{ font-size:14px;font-weight:950;letter-spacing:.2px;color:var(--royal);text-transform:uppercase; }
+    .brand .s{ font-size:12px;color:var(--muted);font-weight:900; }
+
+    .stepper{
+      display:flex;gap:8px;align-items:center;justify-content:space-between;
+      margin-top:10px;
+    }
+    .stepbar{
+      flex:1;
+      height:10px;border-radius:999px;
+      background: rgba(214,226,255,.75);
+      overflow:hidden;
+      border:1px solid rgba(214,226,255,.95);
+    }
+    .stepbar > div{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, var(--royal2), var(--royal));
+      border-radius:999px;
+      transition: width .18s ease;
+    }
+    .steplabel{
+      font-size:12px;
+      font-weight:950;
+      color:var(--royal);
+      white-space:nowrap;
+      margin-left:8px;
+    }
+
+    .sheet-b{
+      padding: 12px 14px 14px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .card{
+      border:1px solid rgba(214,226,255,.92);
+      background: linear-gradient(180deg, #fff, #F8FBFF);
+      border-radius: 18px;
+      padding:12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+    }
+
+    .hrow{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      margin-bottom:10px;
+    }
+    .badge{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;
+      font-size:12px;font-weight:950;letter-spacing:.2px;
+      border:1px solid rgba(214,226,255,.85);
+      background: rgba(255,255,255,.92);
+      color:var(--royal);
+      white-space:nowrap;
+    }
+    .badge .b-dot{ width:9px;height:9px;border-radius:999px;background:var(--warn);box-shadow:0 0 0 6px rgba(245,158,11,.14); }
+
+    .btn{
+      height:var(--tap);
+      border:0;
+      border-radius:16px;
+      padding:0 14px;
+      font-weight:950;
+      letter-spacing:.2px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition: transform .12s ease, box-shadow .12s ease;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      width:100%;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn-primary{
+      color:#fff;
+      background: linear-gradient(180deg, var(--royal2), var(--royal));
+      box-shadow: 0 18px 34px rgba(0, 51, 153, .26);
+    }
+    .btn-ghost{
+      color:var(--royal);
+      background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+      border:1px solid rgba(214,226,255,.95);
+      box-shadow: var(--shadow2);
+    }
+    .btn-mini{ height:44px;border-radius:14px;font-weight:950; }
+
+    .row{ display:flex; gap:10px; }
+    .row > *{ flex:1; }
+    @media (max-width: 520px){ .row{ flex-direction:column; } }
+
+    .field{ display:flex; flex-direction:column; gap:7px; margin-bottom:10px; position:relative; }
+    .field label{ font-size:12px;color:var(--muted);font-weight:950;letter-spacing:.15px; }
+
+    .input, .select, .textarea{
+      height:46px;border-radius:14px;border:1px solid rgba(214,226,255,.95);
+      background: linear-gradient(180deg, #fff, #F8FBFF);
+      padding:0 12px;outline:none;font-weight:900;color:var(--text);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+      transition: box-shadow .12s ease, border-color .12s ease;
+    }
+    .textarea{ height:86px;padding:10px 12px;resize:none;line-height:1.3;font-weight:850; }
+    .input:focus, .select:focus, .textarea:focus{
+      border-color: rgba(37, 91, 255, .55);
+      box-shadow: 0 0 0 5px rgba(37, 91, 255, .12);
+    }
+
+    /* Address suggestions dropdown */
+    .sug{
+      position:absolute;
+      left:0; right:0;
+      top: calc(100% + 6px);
+      background:#fff;
+      border:1px solid rgba(214,226,255,.95);
+      box-shadow: var(--shadow2);
+      border-radius: 14px;
+      overflow:hidden;
+      z-index: 999;
+    }
+    .sug button{
+      width:100%;
+      border:0;
+      background:#fff;
+      padding:10px 12px;
+      text-align:left;
+      cursor:pointer;
+      font-weight:900;
+      color:#0b1020;
+      border-bottom:1px solid rgba(214,226,255,.6);
+    }
+    .sug button:last-child{ border-bottom:0; }
+    .sug small{ display:block; margin-top:2px; font-weight:850; color:var(--muted); }
+
+    .svc-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .svc{
+      border:1px solid rgba(214,226,255,.95);
+      background: linear-gradient(180deg, #fff, #F8FBFF);
+      border-radius: 18px;
+      padding:12px;
+      cursor:pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+      transition: transform .12s ease, box-shadow .12s ease;
+      user-select:none;
+    }
+    .svc:active{ transform: translateY(1px) scale(.99); }
+    .svc.active{
+      border-color: rgba(37,91,255,.55);
+      box-shadow: 0 0 0 5px rgba(37,91,255,.12);
+    }
+    .svc strong{ display:block; font-weight:950; color:var(--royal); }
+    .svc small{ display:block; margin-top:4px; color:var(--muted); font-weight:850; line-height:1.25; }
+
+    .kv{
+      display:flex;flex-direction:column;gap:2px;line-height:1.15;
+    }
+    .kv small{ color:var(--muted); font-weight:950; font-size:11px; letter-spacing:.2px; }
+    .kv strong{ font-size:13px; font-weight:950; }
+
+    .statusbar{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 14px;
+      border:1px solid rgba(214,226,255,.92);
+      background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+      border-radius:18px;
+      margin-top:10px;
+    }
+
+    .note{
+      padding:10px 12px;border-radius:16px;border:1px dashed rgba(37, 91, 255, .35);
+      background: rgba(37, 91, 255, .06);
+      color: rgba(11,43,122,.95);
+      font-size:12px;font-weight:850;line-height:1.35;
+      margin-top:10px;
+    }
+
+    .list{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+    .item{
+      padding:12px 12px;border-radius:18px;border:1px solid rgba(214,226,255,.92);
+      background: linear-gradient(180deg, #FFFFFF, #F8FBFF);
+      display:flex;gap:10px;align-items:flex-start;
+    }
+    .item .ic{
+      width:38px;height:38px;border-radius:14px;
+      background: radial-gradient(16px 16px at 30% 30%, rgba(37, 91, 255, .35), rgba(37, 91, 255, .12));
+      border:1px solid rgba(214,226,255,.9);
+      display:grid;place-items:center;color:var(--royal);font-weight:950;flex:0 0 auto;
+    }
+    .item .tx{ flex:1; min-width:0; }
+    .item .tx strong{ display:block; font-size:13px; font-weight:950; }
+    .item .tx small{ color:var(--muted); font-weight:850; display:block; margin-top:2px; line-height:1.25; }
+    .item .right{ flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+
+    .chip{
+      display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;
+      font-size:11px;font-weight:950;border:1px solid rgba(214,226,255,.9);
+      background:#fff;color:var(--royal);white-space:nowrap;
+    }
+    .chip-ok{ border-color: rgba(18,185,129,.35); color:#0b6b4a; background:rgba(18,185,129,.10); }
+    .chip-bad{ border-color: rgba(239,68,68,.35); color:#a61b1b; background:rgba(239,68,68,.10); }
+
+    /* Bottom nav */
+    .bottom-nav{
+      position:fixed;left:0;right:0;bottom:0;z-index:95;
+      padding-bottom: var(--safeBottom);
+      background: linear-gradient(180deg, rgba(244,247,255,.62), rgba(244,247,255,.92));
+      backdrop-filter: blur(10px);
+      border-top:1px solid rgba(214,226,255,.8);
+    }
+    .bottom-nav .inner{
+      display:flex;gap:10px;padding:10px 12px;
+      max-width: 720px;
+      margin:0 auto;
+    }
+    .navbtn{
+      flex:1;height:56px;border-radius:18px;border:1px solid transparent;background:transparent;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+      cursor:pointer;font-weight:950;color:var(--royal);
+    }
+    .navbtn.active{
+      background: linear-gradient(180deg, #fff, #F7FAFF);
+      border-color: rgba(214,226,255,.95);
+      box-shadow: var(--shadow2);
+    }
+    .navbtn .mini{ font-size:10px;color:var(--muted);font-weight:950;letter-spacing:.2px; }
+
+    .hide{ display:none !important; }
+
+    /* Desktop: aparência de app, porém usável em PC */
+    @media (min-width: 981px){
+      body{ overflow:auto; background: var(--bg); }
+      .surface{
+        position:relative;
+        height: calc(100vh - 24px);
+        margin:12px auto;
+        max-width: 1180px;
+        border-radius: 26px;
+        overflow:hidden;
+        border:1px solid rgba(214,226,255,.85);
+        box-shadow: var(--shadow);
+      }
+      .topbar{ position:absolute; }
+      .sheet{
+        left: calc(50% - 590px);
+        width: 420px;
+        right:auto;
+        bottom: 12px;
+        transform:none;
+        max-height: calc(100vh - 120px);
+      }
+      .sheet.expanded{ transform:none; }
+    }
+
+    /* Leaflet tweaks */
+    .leaflet-control-zoom a{
+      border-radius:14px !important;
+      border:1px solid rgba(214,226,255,.9) !important;
+      box-shadow: var(--shadow2) !important;
+      background: rgba(255,255,255,.92) !important;
+      color: var(--royal) !important;
+      backdrop-filter: blur(10px);
+    }
+    .leaflet-container{ background:#0b1020; }
+  </style>
+</head>
+
+<body>
+  <div class="surface">
+    <div id="map"></div>
+  </div>
+
+  <div class="topbar">
+    <button class="iconbtn" id="btnSair" title="Sair">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M10 17v-2h4v-6h-4V7l-5 5 5 5zm9 4H12v-2h7V5h-7V3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/>
+      </svg>
+    </button>
+
+    <div class="pill" title="Conexão">
+      <span class="dot" id="onlineDot"></span>
+      <div class="meta">
+        <small>CONEXÃO</small>
+        <strong id="onlineText">Conectando…</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet expanded" id="sheet">
+    <div class="grab" id="grab"></div>
+
+    <div class="sheet-h">
+      <div class="hrow">
+        <div class="brand">
+          <div class="t">Coopex</div>
+          <div class="s">Olá, {{ cli.nome }}. Faça seu pedido em poucos passos.</div>
+        </div>
+
+        <span class="badge">
+          <span class="b-dot" id="badgeDot"></span>
+          <span id="badgeTxt">Pronto</span>
+        </span>
+      </div>
+
+      <div class="stepper">
+        <div class="stepbar"><div id="stepFill"></div></div>
+        <div class="steplabel" id="stepLabel">Serviço</div>
+      </div>
+    </div>
+
+    <div class="sheet-b">
+
+      <!-- ===== STEP 1: SERVIÇO ===== -->
+      <section id="step-1">
+        <div class="card">
+          <div class="kv">
+            <small>ESCOLHA O SERVIÇO</small>
+            <strong>O que você precisa hoje?</strong>
+          </div>
+          <div style="height:10px"></div>
+
+          <div class="svc-grid" id="svcGrid">
+            <div class="svc active" data-svc="COLETA_ENTREGA">
+              <strong>Coleta / Entrega</strong>
+              <small>Levar e buscar com parada(s) se precisar</small>
+            </div>
+            <div class="svc" data-svc="COMPRAS">
+              <strong>Compras</strong>
+              <small>Compras em mercado/farmácia e entrega</small>
+            </div>
+            <div class="svc" data-svc="CARTORIO">
+              <strong>Cartório</strong>
+              <small>Protocolos, reconhecimentos, retirada/entrega</small>
+            </div>
+            <div class="svc" data-svc="CORREIOS">
+              <strong>Correios</strong>
+              <small>Postagem, retirada e entrega no destino</small>
+            </div>
+          </div>
+
+          <div class="note" id="svcHint">
+            Dica: você pode incluir paradas e observações no final.
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-primary" id="btnNext1" type="button">Continuar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 2: COLETA ===== -->
+      <section id="step-2" class="hide">
+        <div class="card">
+          <div class="kv">
+            <small>COLETA</small>
+            <strong>Onde vamos buscar?</strong>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="field">
+            <label>Endereço ou local (autocomplete / CEP)</label>
+            <input class="input addr" id="coleta_end" placeholder="Digite rua, local ou CEP (ex: 59000-000)" autocomplete="off">
+            <div class="sug hide" id="coleta_sug"></div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Número</label>
+              <input class="input" id="coleta_num" placeholder="Ex.: 120" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Complemento</label>
+              <input class="input" id="coleta_comp" placeholder="Ex.: Apto 201 / Sala 03">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Bairro</label>
+              <input class="input" id="coleta_bairro" placeholder="Ex.: Lagoa Nova">
+            </div>
+            <div class="field">
+              <label>Cidade/UF</label>
+              <input class="input" id="coleta_cidadeuf" placeholder="Ex.: Natal/RN">
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn btn-ghost" id="btnLocColeta" type="button">Usar minha localização</button>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnBack2" type="button">Voltar</button>
+            <button class="btn btn-primary" id="btnNext2" type="button">Continuar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 3: ENTREGA ===== -->
+      <section id="step-3" class="hide">
+        <div class="card">
+          <div class="kv">
+            <small>ENTREGA</small>
+            <strong>Para onde vamos levar?</strong>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="field">
+            <label>Endereço ou local (autocomplete / CEP)</label>
+            <input class="input addr" id="entrega_end" placeholder="Digite rua, local ou CEP" autocomplete="off">
+            <div class="sug hide" id="entrega_sug"></div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Número</label>
+              <input class="input" id="entrega_num" placeholder="Ex.: 200" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Complemento</label>
+              <input class="input" id="entrega_comp" placeholder="Ex.: Casa / Apto / Loja">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Bairro</label>
+              <input class="input" id="entrega_bairro" placeholder="Ex.: Tirol">
+            </div>
+            <div class="field">
+              <label>Cidade/UF</label>
+              <input class="input" id="entrega_cidadeuf" placeholder="Ex.: Natal/RN">
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn btn-ghost" id="btnLocEntrega" type="button">Usar minha localização</button>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnBack3" type="button">Voltar</button>
+            <button class="btn btn-primary" id="btnNext3" type="button">Continuar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 4: PARADAS + CONTATOS ===== -->
+      <section id="step-4" class="hide">
+        <div class="card">
+          <div class="kv">
+            <small>DETALHES</small>
+            <strong>Paradas e informações</strong>
+          </div>
+
+          <div class="note">
+            Parada pode ser coleta ou entrega. Coloque endereço, bairro, contato e observação se precisar.
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnAddStop" type="button">Adicionar parada</button>
+          </div>
+
+          <div id="stopsWrap" class="list"></div>
+
+          <div class="note">
+            Contatos (opcional, mas recomendado):
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div class="field" style="margin:0">
+              <label>Contato (coleta)</label>
+              <input class="input" id="coleta_contato" placeholder="Nome / Loja">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Telefone (coleta)</label>
+              <input class="input" id="coleta_fone" placeholder="(84) 9xxxx-xxxx" inputmode="tel">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field" style="margin:0">
+              <label>Contato (entrega)</label>
+              <input class="input" id="entrega_contato" placeholder="Nome / Cliente">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Telefone (entrega)</label>
+              <input class="input" id="entrega_fone" placeholder="(84) 9xxxx-xxxx" inputmode="tel">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Observações (ex.: frágil, retorno, prioridade)</label>
+            <textarea class="textarea" id="obs" placeholder="Escreva detalhes importantes aqui..."></textarea>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnBack4" type="button">Voltar</button>
+            <button class="btn btn-primary" id="btnNext4" type="button">Continuar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 5: REVISÃO + PAGAMENTO + COTAÇÃO ===== -->
+      <section id="step-5" class="hide">
+        <div class="card">
+          <div class="kv">
+            <small>REVISÃO</small>
+            <strong>Confira antes de pedir</strong>
+          </div>
+
+          <div class="statusbar">
+            <div class="kv">
+              <small>ESTIMATIVA</small>
+              <strong id="etaTxt">—</strong>
+            </div>
+            <div class="kv" style="text-align:right;">
+              <small>VALOR</small>
+              <strong id="precoTxt">—</strong>
+            </div>
+          </div>
+
+          <div class="statusbar">
+            <div class="kv">
+              <small>DISTÂNCIA</small>
+              <strong id="distTxt">—</strong>
+            </div>
+            <div class="kv" style="text-align:right;">
+              <small>SALDO</small>
+              <strong id="saldoTxt">R$ {{ '%.2f'|format(cli.saldo_atual or 0) | replace('.', ',') }}</strong>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label>Pagamento</label>
+            <select class="select" id="pagamento">
+              <option value="CREDITO">Usar crédito</option>
+              <option value="PIX">Pix</option>
+              <option value="DINHEIRO">Dinheiro</option>
+            </select>
+          </div>
+
+          <div class="note" id="quoteNote">
+            Ao abrir este passo, o sistema calcula rota e cotação automaticamente.
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnBack5" type="button">Voltar</button>
+            <button class="btn btn-primary" id="btnSolicitar" type="button">Solicitar agora</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 6: RASTREIO ===== -->
+      <section id="step-6" class="hide">
+        <div class="card">
+          <div class="kv">
+            <small>RASTREIO</small>
+            <strong>Acompanhe sua entrega</strong>
+          </div>
+
+          <div class="statusbar">
+            <div class="kv">
+              <small>CÓDIGO</small>
+              <strong id="trackCode">—</strong>
+            </div>
+            <div class="kv" style="text-align:right;">
+              <small>STATUS</small>
+              <strong id="trackStatus">Aguardando…</strong>
+            </div>
+          </div>
+
+          <div class="statusbar">
+            <div class="kv">
+              <small>MOTOBOY</small>
+              <strong id="trackMoto">—</strong>
+            </div>
+            <div class="kv" style="text-align:right;">
+              <small>PAGAMENTO</small>
+              <strong id="trackPay">—</strong>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnCentralizar" type="button">Centralizar no mapa</button>
+            <button class="btn btn-ghost" id="btnComprovante" type="button">Comprovante</button>
+          </div>
+
+          <div class="note" id="trackNote">
+            Assim que a supervisão atribuir um cooperado, o rastreio começa automaticamente aqui.
+          </div>
+
+          <div class="list" id="timeline"></div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btnNovoPedido" type="button">Novo pedido</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Histórico (opcional, mantém seu comportamento) -->
+      <div class="note" style="margin-top:12px">
+        Últimas entregas (com comprovante):
+      </div>
+
+      <div class="list" id="listaEntregas">
+        {% for e in entregas %}
+          <div class="item">
+            <div class="ic">{{ loop.index }}</div>
+            <div class="tx">
+              <strong>Entrega #{{ e.id }}</strong>
+              <small>
+                {% if e.data_envio %}
+                  {{ to_brasilia(e.data_envio).strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                  Data não informada
+                {% endif %}
+                • Valor: R$ {{ '%.2f'|format(e.valor or 0) | replace('.', ',') }}
+                • Pagamento: {{ (e.pagamento or '-') }}
+                • Status: {{ (e.status or 'pendente')|capitalize }}
+              </small>
+            </div>
+            <div class="right">
+              <span class="chip {{ 'chip-ok' if (e.status_pagamento or '')|lower == 'pago' else 'chip-bad' }}">
+                {{ 'Pago' if (e.status_pagamento or '')|lower == 'pago' else 'Pendente' }}
+              </span>
+              <a class="btn btn-ghost btn-mini"
+                 href="{{ url_for('cliente_comprovante', entrega_id=e.id) }}"
+                 target="_blank" rel="noopener">
+                Abrir
+              </a>
+            </div>
+          </div>
+        {% else %}
+          <div class="note">Você ainda não tem entregas registradas no sistema.</div>
+        {% endfor %}
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="inner">
+      <button class="navbtn active" data-step="1" type="button">
+        <div>Pedir</div><div class="mini">serviço</div>
+      </button>
+      <button class="navbtn" data-step="6" type="button">
+        <div>Rastrear</div><div class="mini">entrega</div>
+      </button>
+      <button class="navbtn" data-step="5" type="button">
+        <div>Revisão</div><div class="mini">preço</div>
+      </button>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin
+  ></script>
+
+<script>
+/* ========= ENDPOINTS FLASK ========= */
+const API = {
+  cotar:      "{{ url_for('api_cliente_cotar_entrega') }}",
+  solicitar:  "{{ url_for('api_cliente_solicitar_entrega') }}",
+  _trackBase: "{{ url_for('api_rastreamento', codigo=0) }}",
+  tracking: (id) => API._trackBase.replace(/0$/, String(id)),
+  _compBase: "{{ url_for('cliente_comprovante', entrega_id=0) }}",
+  comprovante: (id) => API._compBase.replace(/0$/, String(id)),
+  logout: "{{ url_for('cliente_logout') }}",
+};
+
+/* ========= CONFIG ========= */
+const KM_FALLBACK = 2.00;      // seu valor por KM
+const POLL_MS = 2500;
+
+/* ========= UTIL ========= */
+const $ = (id) => document.getElementById(id);
+const moneyBR = (n) => (Number(n || 0)).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+
+function setOnline(flag){
+  const dot = $("onlineDot"), txt = $("onlineText");
+  if(!dot||!txt) return;
+  dot.style.background = flag ? "var(--ok)" : "var(--bad)";
+  dot.style.boxShadow = flag ? "0 0 0 6px rgba(18,185,129,.14)" : "0 0 0 6px rgba(239,68,68,.14)";
+  txt.textContent = flag ? "Online" : "Offline";
+}
+function setBadge(txt, ok=false){
+  const d=$("badgeDot"), t=$("badgeTxt");
+  if(!d||!t) return;
+  d.style.background = ok ? "var(--ok)" : "var(--warn)";
+  d.style.boxShadow  = ok ? "0 0 0 6px rgba(18,185,129,.14)" : "0 0 0 6px rgba(245,158,11,.14)";
+  t.textContent = txt || "—";
+}
+async function safeJSON(url, opts){
+  try{
+    const r = await fetch(url, { credentials:"same-origin", ...opts });
+    const ct = (r.headers.get("content-type")||"").toLowerCase();
+    const isJSON = ct.includes("application/json");
+    const data = isJSON ? await r.json() : null;
+    if(!r.ok) return data || { ok:false, erro:`HTTP ${r.status}` };
+    return data;
+  }catch(e){
+    return null;
+  }
+}
+function debounce(fn, ms=320){
+  let t=null;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+}
+function onlyDigits(s){ return (s||"").replace(/\D/g,""); }
+
+/* ========= STATE ========= */
+const state = {
+  step: 1,
+  servico: "COLETA_ENTREGA",
+
+  coleta: { text:"", lat:null, lng:null, bairro:"", cidadeuf:"", num:"", comp:"" },
+  entrega:{ text:"", lat:null, lng:null, bairro:"", cidadeuf:"", num:"", comp:"" },
+  stops: [],
+
+  quote: { ok:false, preco:null, dist_km:null, dur_min:null, fonte:null, msg:null },
+  entregaId: null,
+  poll: null,
+
+  map: null,
+  mkA: null,
+  mkB: null,
+  mkM: null,
+  line: null,
+};
+
+/* ========= MAP ========= */
+function initMap(){
+  const natal = [-5.7945, -35.2110];
+  state.map = L.map("map", { zoomControl:true }).setView(natal, 13);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "&copy; OpenStreetMap"
+  }).addTo(state.map);
+
+  const iconDot = (color) => L.divIcon({
+    className:"",
+    html:`<div style="
+      width:18px;height:18px;border-radius:999px;background:${color};
+      box-shadow:0 0 0 10px ${color}22, 0 12px 24px rgba(0,0,0,.22);
+      border:3px solid rgba(255,255,255,.95);
+    "></div>`,
+    iconSize:[18,18], iconAnchor:[9,9],
+  });
+
+  state.mkA = L.marker(natal, { icon: iconDot("#111827") }).addTo(state.map);
+  state.mkB = L.marker(natal, { icon: iconDot("#255BFF") }).addTo(state.map);
+  state.mkM = L.marker(natal, { icon: iconDot("#12B981") }).addTo(state.map);
+
+  state.line = L.polyline([natal,natal], { weight:5, opacity:.85 }).addTo(state.map);
+
+  setTimeout(()=>state.map.invalidateSize(), 400);
+  window.addEventListener("resize", ()=>setTimeout(()=>state.map.invalidateSize(), 200));
+}
+function setRoute(a,b){
+  if(!state.map) return;
+  state.mkA.setLatLng(a);
+  state.mkB.setLatLng(b);
+  state.line.setLatLngs([a,b]);
+  const bb = L.latLngBounds([a,b]).pad(0.25);
+  state.map.fitBounds(bb, { animate:true, duration:.6 });
+}
+function setMoto(pos){
+  if(!state.map) return;
+  state.mkM.setLatLng(pos);
+}
+
+/* ========= UI / STEPS ========= */
+const stepNames = {
+  1:"Serviço", 2:"Coleta", 3:"Entrega", 4:"Detalhes", 5:"Revisão", 6:"Rastreio"
+};
+function setStep(n){
+  state.step = n;
+  for(let i=1;i<=6;i++){
+    const el = $("step-"+i);
+    if(el) el.classList.toggle("hide", i!==n);
+  }
+  const pct = Math.round(((n-1)/5)*100);
+  $("stepFill").style.width = pct + "%";
+  $("stepLabel").textContent = stepNames[n] || "—";
+
+  document.querySelectorAll(".navbtn").forEach(btn=>{
+    btn.classList.toggle("active", Number(btn.dataset.step) === n);
+  });
+
+  if(state.map) setTimeout(()=>state.map.invalidateSize(), 200);
+
+  // ao entrar em revisão, calcula cotação
+  if(n === 5){
+    quoteAll();
+  }
+}
+function toggleSheet(){
+  $("sheet").classList.toggle("expanded");
+  if(state.map) setTimeout(()=>state.map.invalidateSize(), 220);
+}
+
+/* ========= SERVICES ========= */
+function wireServices(){
+  const grid = $("svcGrid");
+  grid.querySelectorAll(".svc").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      grid.querySelectorAll(".svc").forEach(c=>c.classList.remove("active"));
+      card.classList.add("active");
+      state.servico = card.dataset.svc;
+    });
+  });
+}
+
+/* ========= ADDRESS AUTOCOMPLETE + CEP =========
+   - Nominatim (autocomplete)
+   - ViaCEP (CEP -> preenche rua/bairro/cidade/uf)
+   - OSRM (rota real para distância/tempo)
+*/
+async function nominatimSearch(q){
+  // BR, resultados limitados
+  const url = "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&q=" + encodeURIComponent(q);
+  return await safeJSON(url, { headers: { "Accept":"application/json" }});
+}
+async function nominatimGeocode(q){
+  // geocode "rua, numero, cidade"
+  return await nominatimSearch(q);
+}
+async function viaCep(cep){
+  const url = "https://viacep.com.br/ws/" + cep + "/json/";
+  return await safeJSON(url, { headers: { "Accept":"application/json" }});
+}
+async function osrmRoute(aLat,aLng,bLat,bLng){
+  // rota real
+  const url = `https://router.project-osrm.org/route/v1/driving/${aLng},${aLat};${bLng},${bLat}?overview=false&alternatives=false&steps=false`;
+  return await safeJSON(url, { headers: { "Accept":"application/json" }});
+}
+
+function showSug(boxId, items, onPick){
+  const box = $(boxId);
+  if(!box) return;
+  if(!items || !items.length){
+    box.classList.add("hide");
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = items.map((it, idx)=>{
+    const title = it.display_name || it.label || "Resultado";
+    const addr = it.address || {};
+    const sub = [
+      addr.road, addr.suburb || addr.neighbourhood, addr.city || addr.town || addr.village, addr.state
+    ].filter(Boolean).join(" • ");
+    return `<button type="button" data-idx="${idx}">
+      ${title.split(",").slice(0,2).join(",")}
+      <small>${sub || title}</small>
+    </button>`;
+  }).join("");
+  box.classList.remove("hide");
+  box.querySelectorAll("button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const i = Number(btn.dataset.idx);
+      onPick(items[i]);
+      box.classList.add("hide");
+      box.innerHTML = "";
+    });
+  });
+}
+
+function bindAddress(prefix){
+  const inp = $(prefix+"_end");
+  const sug = $(prefix+"_sug");
+  const num = $(prefix+"_num");
+  const comp = $(prefix+"_comp");
+  const bairro = $(prefix+"_bairro");
+  const cidadeuf = $(prefix+"_cidadeuf");
+
+  const setStateFromNominatim = (item) => {
+    const lat = Number(item.lat), lng = Number(item.lon);
+    state[prefix].text = item.display_name || inp.value;
+    state[prefix].lat = lat; state[prefix].lng = lng;
+
+    const a = item.address || {};
+    // tenta preencher campos
+    bairro.value = a.suburb || a.neighbourhood || a.city_district || bairro.value;
+    const city = a.city || a.town || a.village || a.municipality || "";
+    const st = a.state || "";
+    if(city || st) cidadeuf.value = (city && st) ? `${city}/${(a.state_code||"").toUpperCase() || st}` : (cidadeuf.value || "");
+
+    // se o resultado tiver house_number, joga no número (se estiver vazio)
+    if(a.house_number && !num.value) num.value = a.house_number;
+
+    // marcador no mapa
+    if(state.coleta.lat && state.entrega.lat){
+      setRoute([state.coleta.lat, state.coleta.lng],[state.entrega.lat, state.entrega.lng]);
+    } else {
+      if(state.map) state.map.setView([lat,lng], 15, { animate:true });
+      if(prefix === "coleta") state.mkA.setLatLng([lat,lng]);
+      if(prefix === "entrega") state.mkB.setLatLng([lat,lng]);
+    }
+  };
+
+  // autocomplete / CEP
+  const runSuggest = debounce(async ()=>{
+    const raw = (inp.value||"").trim();
+    if(!raw){ showSug(prefix+"_sug", null, ()=>{}); return; }
+
+    const dig = onlyDigits(raw);
+    // CEP: 8 dígitos
+    if(dig.length === 8){
+      setBadge("Buscando CEP…");
+      const data = await viaCep(dig);
+      if(!data || data.erro){
+        setBadge("CEP inválido");
+        return;
+      }
+      // preenche (rua/bairro/cidade/uf)
+      const rua = data.logradouro || "";
+      const bai = data.bairro || "";
+      const cid = data.localidade || "";
+      const uf  = data.uf || "";
+      inp.value = rua ? `${rua} - CEP ${dig}` : `CEP ${dig}`;
+      bairro.value = bai || bairro.value;
+      cidadeuf.value = (cid && uf) ? `${cid}/${uf}` : cidadeuf.value;
+      if(!num.value) num.focus();
+      setBadge("CEP ok", true);
+
+      // tenta geocodificar com número quando o usuário preencher (blur do número)
+      return;
+    }
+
+    setBadge("Sugerindo…");
+    const res = await nominatimSearch(raw);
+    if(!res || !Array.isArray(res)){
+      setBadge("Offline");
+      return;
+    }
+    showSug(prefix+"_sug", res, (item)=>{ setStateFromNominatim(item); setBadge("OK", true); });
+    setBadge("OK", true);
+  }, 380);
+
+  inp.addEventListener("input", runSuggest);
+  inp.addEventListener("focus", runSuggest);
+  inp.addEventListener("blur", ()=>setTimeout(()=>{ if(sug) sug.classList.add("hide"); }, 220));
+
+  // quando número for preenchido após CEP, geocodifica
+  num.addEventListener("blur", debounce(async ()=>{
+    const dig = onlyDigits(inp.value||"");
+    if(dig.length !== 8) return;
+    const n = (num.value||"").trim();
+    if(!n) return;
+
+    const composed = `${inp.value.replace(/CEP\s*\d+/i,"").trim()}, ${n}, ${bairro.value||""}, ${cidadeuf.value||""}`;
+    setBadge("Localizando…");
+    const res = await nominatimGeocode(composed);
+    if(res && Array.isArray(res) && res[0]){
+      setStateFromNominatim(res[0]);
+      setBadge("OK", true);
+    }else{
+      setBadge("Sem coordenadas");
+    }
+  }, 400));
+
+  // salva campos no state
+  const sync = ()=>{
+    state[prefix].text = (inp.value||"").trim();
+    state[prefix].bairro = (bairro.value||"").trim();
+    state[prefix].cidadeuf = (cidadeuf.value||"").trim();
+    state[prefix].num = (num.value||"").trim();
+    state[prefix].comp = (comp.value||"").trim();
+  };
+  [inp,num,comp,bairro,cidadeuf].forEach(el=>el.addEventListener("change", sync));
+  [inp,num,comp,bairro,cidadeuf].forEach(el=>el.addEventListener("blur", sync));
+}
+
+/* ========= GEOLOCATION ========= */
+function applyMyLocation(prefix){
+  if(!navigator.geolocation){ alert("Geolocalização não suportada."); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      state[prefix].lat=lat; state[prefix].lng=lng;
+      $(prefix+"_end").value = $(prefix+"_end").value.trim() || `Minha localização (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+      if(state.map){
+        state.map.setView([lat,lng], 15, { animate:true });
+        if(prefix==="coleta") state.mkA.setLatLng([lat,lng]);
+        if(prefix==="entrega") state.mkB.setLatLng([lat,lng]);
+      }
+      setBadge("Localização ok", true);
+    },
+    ()=>alert("Não foi possível obter localização. Verifique permissões."),
+    { enableHighAccuracy:true, timeout:8000 }
+  );
+}
+
+/* ========= STOPS ========= */
+function stopCardHTML(idx){
+  return `
+  <div class="item" data-stop-index="${idx}">
+    <div class="ic">${idx+1}</div>
+    <div class="tx" style="width:100%">
+      <div class="row" style="margin:0 0 8px 0">
+        <div class="field" style="margin:0">
+          <label>Tipo</label>
+          <select class="select stop-tipo">
+            <option value="COLETA">Coleta</option>
+            <option value="ENTREGA">Entrega</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Bairro</label>
+          <input class="input stop-bairro" placeholder="Ex.: Alecrim">
+        </div>
+      </div>
+      <div class="field" style="margin:0 0 8px 0">
+        <label>Endereço / CEP</label>
+        <input class="input stop-end" placeholder="Rua, local ou CEP">
+      </div>
+      <div class="row" style="margin:0 0 8px 0">
+        <div class="field" style="margin:0">
+          <label>Contato</label>
+          <input class="input stop-nome" placeholder="Nome / Loja">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Telefone</label>
+          <input class="input stop-fone" placeholder="(84) 9xxxx-xxxx" inputmode="tel">
+        </div>
+      </div>
+      <div class="field" style="margin:0">
+        <label>Referência</label>
+        <input class="input stop-ref" placeholder="Detalhes do ponto">
+      </div>
+    </div>
+    <div class="right">
+      <button class="btn btn-ghost btn-mini btnRemoveStop" type="button">Remover</button>
+    </div>
+  </div>`;
+}
+function addStop(){
+  const wrap = $("stopsWrap");
+  const idx = wrap.querySelectorAll(".item[data-stop-index]").length;
+  wrap.insertAdjacentHTML("beforeend", stopCardHTML(idx));
+  wireStopRemove();
+}
+function wireStopRemove(){
+  document.querySelectorAll(".btnRemoveStop").forEach(btn=>{
+    if(btn.__w) return;
+    btn.__w=true;
+    btn.addEventListener("click",(e)=>{
+      const card = e.target.closest(".item");
+      if(card) card.remove();
+      renumberStops();
+    });
+  });
+}
+function renumberStops(){
+  const wrap=$("stopsWrap");
+  wrap.querySelectorAll(".item[data-stop-index]").forEach((card,i)=>{
+    card.dataset.stopIndex=String(i);
+    const ic = card.querySelector(".ic");
+    if(ic) ic.textContent = String(i+1);
+  });
+}
+function readStops(){
+  const wrap=$("stopsWrap");
+  const cards=[...wrap.querySelectorAll(".item[data-stop-index]")];
+  return cards.map(card=>({
+    tipo: (card.querySelector(".stop-tipo")?.value||"COLETA").trim(),
+    bairro: (card.querySelector(".stop-bairro")?.value||"").trim(),
+    endereco: (card.querySelector(".stop-end")?.value||"").trim(),
+    nome: (card.querySelector(".stop-nome")?.value||"").trim(),
+    telefone: (card.querySelector(".stop-fone")?.value||"").trim(),
+    referencia: (card.querySelector(".stop-ref")?.value||"").trim(),
+  })).filter(s=>s.endereco||s.bairro||s.nome||s.telefone||s.referencia);
+}
+
+/* ========= QUOTE (PRO) =========
+   1) tenta seu back-end (ideal)
+   2) se seu back-end retornar erro de rota, ainda assim calcula via OSRM no front para exibir (e orientar)
+*/
+async function quoteAll(){
+  // requisitos mínimos
+  if(!state.coleta.text || !state.entrega.text){
+    $("quoteNote").textContent = "Preencha coleta e entrega para calcular.";
+    return;
+  }
+  // se não tiver coordenadas ainda, tenta geocodificar texto completo (pode demorar)
+  await ensureCoords("coleta");
+  await ensureCoords("entrega");
+
+  if(!state.coleta.lat || !state.entrega.lat){
+    $("quoteNote").textContent = "Não consegui obter coordenadas. Use sugestões/autocomplete ou CEP+Número.";
+    return;
+  }
+
+  setBadge("Cotando…");
+
+  // 1) back-end
+  const payload = {
+    coleta: { bairro: state.coleta.bairro || null, endereco: fullAddr("coleta"), lat: state.coleta.lat, lng: state.coleta.lng },
+    entrega:{ bairro: state.entrega.bairro || null, endereco: fullAddr("entrega"), lat: state.entrega.lat, lng: state.entrega.lng },
+    servico: state.servico,
+    paradas: readStops(),
+  };
+
+  let r = await safeJSON(API.cotar, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if(r && r.ok){
+    setOnline(true);
+    applyQuote(r.preco, r.distancia_km, r.duracao_min, "backend");
+    setBadge("OK", true);
+    $("quoteNote").textContent = "Cotação calculada pelo sistema.";
+    return;
+  }
+
+  // 2) fallback visual via OSRM (rota real) — isso evita ficar “travado”, mas o CERTO é consertar o Python.
+  const os = await osrmRoute(state.coleta.lat, state.coleta.lng, state.entrega.lat, state.entrega.lng);
+  if(os && os.routes && os.routes[0]){
+    const dist_m = os.routes[0].distance || 0;
+    const dur_s  = os.routes[0].duration || 0;
+    const dist_km = dist_m/1000;
+    const dur_min = Math.max(1, Math.round(dur_s/60));
+    const preco = dist_km * KM_FALLBACK;
+
+    applyQuote(preco, dist_km, dur_min, "osrm_front_fallback");
+    setBadge("Estimado", true);
+
+    const msg = (r && (r.erro || r.msg)) ? (r.erro || r.msg) : "Seu servidor não retornou preço. Usando estimativa por KM.";
+    $("quoteNote").textContent = msg + " (Sugestão: aplicar o patch do Python abaixo.)";
+    return;
+  }
+
+  setOnline(false);
+  setBadge("Offline");
+  $("quoteNote").textContent = (r && (r.erro||r.msg)) ? (r.erro||r.msg) : "Não foi possível cotar.";
+}
+
+function applyQuote(preco, dist_km, dur_min, fonte){
+  state.quote = { ok:true, preco, dist_km, dur_min, fonte };
+  $("precoTxt").textContent = preco!=null ? moneyBR(preco) : "—";
+  $("distTxt").textContent = dist_km!=null ? (dist_km.toFixed(2).replace(".",",") + " km") : "—";
+  $("etaTxt").textContent  = dur_min!=null ? (dur_min + " min") : "—";
+
+  // desenha linha
+  if(state.coleta.lat && state.entrega.lat){
+    setRoute([state.coleta.lat,state.coleta.lng],[state.entrega.lat,state.entrega.lng]);
+  }
+}
+
+function fullAddr(prefix){
+  const p = state[prefix];
+  const num = p.num ? ", " + p.num : "";
+  const comp = p.comp ? " (" + p.comp + ")" : "";
+  const extra = [p.bairro, p.cidadeuf].filter(Boolean).join(" - ");
+  return (p.text || "").trim() + num + comp + (extra ? " - " + extra : "");
+}
+
+async function ensureCoords(prefix){
+  if(state[prefix].lat && state[prefix].lng) return;
+  const q = fullAddr(prefix) || state[prefix].text;
+  if(!q) return;
+  const res = await nominatimGeocode(q);
+  if(res && Array.isArray(res) && res[0]){
+    state[prefix].lat = Number(res[0].lat);
+    state[prefix].lng = Number(res[0].lon);
+  }
+}
+
+/* ========= SOLICITAR ========= */
+function normMeioPagamento(v){
+  const up = String(v||"").trim().toUpperCase();
+  if(up==="CREDITO"||up==="CRÉDITO") return "CREDITO";
+  if(up==="PIX") return "PIX";
+  if(up==="DINHEIRO") return "DINHEIRO";
+  return "PIX";
+}
+
+async function solicitar(){
+  await quoteAll(); // garante coords/quote
+  if(!state.coleta.text || !state.entrega.text){
+    alert("Preencha coleta e entrega.");
+    return;
+  }
+
+  const payload = {
+    servico: state.servico,
+    coleta: {
+      bairro: state.coleta.bairro || null,
+      endereco: fullAddr("coleta"),
+      lat: state.coleta.lat, lng: state.coleta.lng,
+      contato: ($("coleta_contato").value||"").trim() || null,
+      telefone: ($("coleta_fone").value||"").trim() || null,
+    },
+    entrega:{
+      bairro: state.entrega.bairro || null,
+      endereco: fullAddr("entrega"),
+      lat: state.entrega.lat, lng: state.entrega.lng,
+      contato: ($("entrega_contato").value||"").trim() || null,
+      telefone: ($("entrega_fone").value||"").trim() || null,
+    },
+    paradas: readStops(),
+    observacao: ($("obs").value||"").trim() || null,
+    meio_pagamento: normMeioPagamento($("pagamento").value),
+    // opcional: ajuda seu back-end se você quiser aceitar:
+    preco_estimado: state.quote.preco ?? null,
+    distancia_km: state.quote.dist_km ?? null,
+    duracao_min: state.quote.dur_min ?? null,
+  };
+
+  setBadge("Enviando…");
+  const r = await safeJSON(API.solicitar, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if(!r || !r.ok){
+    setBadge("Erro");
+    alert((r && (r.erro||r.msg)) ? (r.erro||r.msg) : "Não foi possível solicitar.");
+    return;
+  }
+
+  setBadge("Criado", true);
+
+  // A entrega pode existir antes de atribuir cooperado.
+  // O código de rastreio pode ser o ID (mais comum).
+  state.entregaId = String(r.entrega_id || r.id || "");
+  if(!state.entregaId){
+    alert("Pedido criado, mas não recebi o código/ID. Verifique retorno do back-end.");
+    return;
+  }
+
+  $("trackCode").textContent = state.entregaId;
+  setStep(6);
+  startTracking();
+}
+
+/* ========= TRACKING ========= */
+function renderTimeline(tr){
+  const wrap = $("timeline");
+  wrap.innerHTML = "";
+
+  const status = String(tr?.status || "aguardando");
+  const pago = String(tr?.status_pagamento || "pendente").toLowerCase() === "pago";
+
+  const rows = [
+    { k:"Status", v: status },
+    { k:"Pagamento", v: pago ? "Pago" : "Pendente" },
+    { k:"Forma", v: tr?.pagamento || "—" },
+    { k:"Valor", v: (tr?.valor!=null ? moneyBR(tr.valor) : "—") },
+  ];
+
+  rows.forEach((it,i)=>{
+    wrap.insertAdjacentHTML("beforeend", `
+      <div class="item">
+        <div class="ic">${i+1}</div>
+        <div class="tx">
+          <strong>${it.k}</strong>
+          <small>${it.v}</small>
+        </div>
+        <div class="right"><span class="chip">Info</span></div>
+      </div>
+    `);
+  });
+
+  const evs = Array.isArray(tr?.eventos) ? tr.eventos : [];
+  evs.slice(0,8).forEach((ev,idx)=>{
+    const when = ev.quando ? new Date(ev.quando) : null;
+    const whenTxt = when ? when.toLocaleString("pt-BR") : "";
+    wrap.insertAdjacentHTML("beforeend", `
+      <div class="item">
+        <div class="ic">${idx+5}</div>
+        <div class="tx">
+          <strong>${ev.titulo || "Evento"}</strong>
+          <small>${ev.descricao || ""} ${whenTxt ? "<br><span style='color:var(--muted)'>"+whenTxt+"</span>" : ""}</small>
+        </div>
+        <div class="right"><span class="chip">Rastreio</span></div>
+      </div>
+    `);
+  });
+}
+
+function isFinalStatus(st){
+  const s = String(st||"").toLowerCase();
+  return ["concluida","concluída","finalizada","finalizado","entregue","encerrada"].includes(s);
+}
+
+function pickMotoPos(tr){
+  // tenta vários formatos para ser compatível com seu back-end
+  const cands = [
+    tr?.motoboy_pos,
+    tr?.moto_pos,
+    tr?.posicao,
+    tr?.localizacao,
+    tr?.coordenadas,
+  ];
+  for(const c of cands){
+    if(!c) continue;
+    if(Array.isArray(c) && c.length===2) return [Number(c[0]), Number(c[1])];
+    if(c.lat!=null && c.lng!=null) return [Number(c.lat), Number(c.lng)];
+  }
+  return null;
+}
+
+async function pollTracking(){
+  if(!state.entregaId) return;
+
+  const tr = await safeJSON(API.tracking(state.entregaId));
+  if(!tr || !tr.ok){
+    setOnline(false);
+    $("trackStatus").textContent = "Sem conexão";
+    return;
+  }
+
+  setOnline(true);
+
+  // “ao atribuir o cooperado o cliente já recebe e começa rastrear”
+  // Aqui: se cooperado vier vazio, continua “Aguardando motoboy”
+  const cooperado = tr.cooperado || tr.cooperado_nome || tr.motoboy || null;
+  $("trackMoto").textContent = cooperado ? String(cooperado) : "Aguardando motoboy…";
+
+  const st = tr.status || "aguardando";
+  $("trackStatus").textContent = cooperado ? String(st) : "Aguardando atribuição…";
+
+  const pay = tr.pagamento || "—";
+  const stp = String(tr.status_pagamento||"pendente").toLowerCase()==="pago" ? "Pago" : "Pendente";
+  $("trackPay").textContent = `${pay} • ${stp}`;
+
+  // rota (se vier do back-end)
+  const ox = tr.origem_extra || null;
+  const dx = tr.destino_extra || null;
+  const orig = (ox && ox.lat!=null && ox.lng!=null) ? [Number(ox.lat), Number(ox.lng)] : (state.coleta.lat ? [state.coleta.lat,state.coleta.lng] : null);
+  const dest = (dx && dx.lat!=null && dx.lng!=null) ? [Number(dx.lat), Number(dx.lng)] : (state.entrega.lat ? [state.entrega.lat,state.entrega.lng] : null);
+  if(orig && dest) setRoute(orig, dest);
+
+  // posição do motoboy
+  const pos = pickMotoPos(tr);
+  if(pos) setMoto(pos);
+
+  renderTimeline(tr);
+
+  // PARA QUANDO CONCLUI
+  if(isFinalStatus(st)){
+    $("trackNote").textContent = "Entrega concluída. Rastreio finalizado.";
+    stopTracking();
+    setBadge("Concluída", true);
+  } else {
+    setBadge(cooperado ? "Em andamento" : "Aguardando", true);
+  }
+}
+
+function startTracking(){
+  stopTracking();
+  pollTracking(); // primeira
+  state.poll = setInterval(pollTracking, POLL_MS);
+}
+function stopTracking(){
+  if(state.poll){ clearInterval(state.poll); state.poll=null; }
+}
+
+/* ========= WIRES ========= */
+function wireNav(){
+  document.querySelectorAll(".navbtn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const s = Number(btn.dataset.step);
+      if(s===6 && !state.entregaId){
+        alert("Ainda não há rastreio ativo. Faça um pedido primeiro.");
+        return;
+      }
+      setStep(s);
+    });
+  });
+}
+
+function wireButtons(){
+  $("btnSair").addEventListener("click", ()=>window.location.href = API.logout);
+  $("grab").addEventListener("click", toggleSheet);
+
+  $("btnNext1").addEventListener("click", ()=>setStep(2));
+
+  $("btnBack2").addEventListener("click", ()=>setStep(1));
+  $("btnNext2").addEventListener("click", ()=>setStep(3));
+
+  $("btnBack3").addEventListener("click", ()=>setStep(2));
+  $("btnNext3").addEventListener("click", ()=>setStep(4));
+
+  $("btnBack4").addEventListener("click", ()=>setStep(3));
+  $("btnNext4").addEventListener("click", ()=>setStep(5));
+
+  $("btnBack5").addEventListener("click", ()=>setStep(4));
+  $("btnSolicitar").addEventListener("click", solicitar);
+
+  $("btnAddStop").addEventListener("click", addStop);
+
+  $("btnLocColeta").addEventListener("click", ()=>applyMyLocation("coleta"));
+  $("btnLocEntrega").addEventListener("click", ()=>applyMyLocation("entrega"));
+
+  $("btnCentralizar").addEventListener("click", ()=>{
+    if(!state.map) return;
+    const a = state.mkA.getLatLng(), b = state.mkB.getLatLng();
+    const bb = L.latLngBounds([a,b]).pad(0.25);
+    state.map.fitBounds(bb, { animate:true, duration:.6 });
+  });
+
+  $("btnComprovante").addEventListener("click", ()=>{
+    if(!state.entregaId){ alert("Sem código."); return; }
+    window.open(API.comprovante(state.entregaId), "_blank", "noopener");
+  });
+
+  $("btnNovoPedido").addEventListener("click", ()=>{
+    stopTracking();
+    state.entregaId=null;
+    $("trackCode").textContent="—";
+    $("trackMoto").textContent="—";
+    $("trackStatus").textContent="Aguardando…";
+    $("trackPay").textContent="—";
+    $("timeline").innerHTML="";
+    setStep(1);
+  });
+}
+
+/* ========= BOOT ========= */
+document.addEventListener("DOMContentLoaded", ()=>{
+  initMap();
+  wireServices();
+  wireNav();
+  wireButtons();
+
+  bindAddress("coleta");
+  bindAddress("entrega");
+
+  setOnline(navigator.onLine);
+  setBadge("Pronto");
+
+  // start
+  setStep(1);
+});
+</script>
+</body>
+</html>

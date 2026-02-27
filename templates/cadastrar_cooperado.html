@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestão de Cooperados | COOPEX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --azul: #1644c9;
+            --azul2: #15398b;
+            --azul3: #f3f7fe;
+            --azul-dark: #112a61;
+            --azul-hover: #256ef0;
+            --branco: #fff;
+            --verde: #18c75b;
+            --verde-hover: #11a94c;
+            --cinza: #f1f3fa;
+            --cinza2: #d7dbeb;
+            --vermelho: #e04b5b;
+            --cinza-apagado: #edeef0;
+            --cinza-txt: #7e879b;
+            --shadow-main: 0 8px 40px 0 #15398b17;
+            --shadow-card: 0 3px 19px #1849c70a;
+            --radius: 18px;
+        }
+        html, body { margin:0; padding:0; background:var(--azul3); font-family:'Inter',Arial,sans-serif; min-height:100vh;}
+        body {
+            min-height: 100vh;
+            background: linear-gradient(120deg, #f7faff 0%, #e7f2ff 100%);
+        }
+        .header-bar {
+            background: var(--azul);
+            color: #fff;
+            font-family: 'Orbitron', Arial, sans-serif;
+            padding: 36px 0 34px 0;
+            font-size: 2.5em;
+            font-weight: 800;
+            letter-spacing: 1.4px;
+            box-shadow: 0 2px 20px #00339924;
+            text-align: center;
+            margin-bottom: 38px;
+            border-radius: 0 0 32px 32px;
+            animation: fadein .7s;
+        }
+        @keyframes fadein { from {opacity:0;transform:translateY(-32px);} to{opacity:1;transform:none;} }
+        .container {
+            display: flex;
+            gap: 38px;
+            max-width: 1280px;
+            margin: 0 auto 0 auto;
+            padding: 0 34px 54px 34px;
+            align-items: flex-start;
+        }
+        .panel {
+            background: var(--branco);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-main);
+            padding: 2.7rem 2.2rem 2.3rem 2.2rem;
+            min-width: 340px;
+            flex: 0 0 370px;
+            display: flex;
+            flex-direction: column;
+            animation: fadein .8s .1s backwards;
+        }
+        .main-content {
+            flex: 1;
+            background: var(--branco);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-main);
+            padding: 2.3rem 2.8rem 2.2rem 2.8rem;
+            min-width: 320px;
+            animation: fadein .9s .16s backwards;
+        }
+        .form-title {
+            color: var(--azul);
+            font-size: 1.33em;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: .7px;
+            margin-bottom: 27px;
+            font-weight: 800;
+        }
+        label {
+            font-weight: 700;
+            color: var(--azul-dark);
+            margin-bottom: 6px;
+            margin-top: 21px;
+            display: block;
+            font-size: 1.09em;
+        }
+        input[type="text"], input[type="password"], .search-bar {
+            width: 100%;
+            padding: 15px 13px;
+            font-size: 1.13em;
+            border: 1.7px solid var(--cinza2);
+            border-radius: 10px;
+            background: var(--cinza);
+            margin-bottom: 13px;
+            color: var(--azul2);
+            box-shadow: 0 1px 8px #00339913;
+            transition: border .16s, box-shadow .13s;
+        }
+        input:focus, .search-bar:focus {
+            border: 2px solid var(--azul);
+            background: #fafdff;
+            box-shadow: 0 2px 13px #1849c71a;
+        }
+        button, .btn {
+            background: var(--azul);
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            font-size: 1.12em;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 13px 0;
+            width: 100%;
+            margin-top: 14px;
+            transition: background .15s, box-shadow .13s, transform .13s;
+            box-shadow: 0 2px 11px #1849c729;
+            letter-spacing: .01em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+        button:hover, .btn:hover { background: var(--azul-hover); transform:translateY(-2px) scale(1.045);}
+        .back-link {
+            color: var(--azul2);
+            font-weight: bold;
+            text-decoration: none;
+            display: block;
+            margin: 27px auto 0 auto;
+            text-align: center;
+            font-size: 1.04em;
+            transition: color .14s;
+        }
+        .back-link:hover { color: var(--azul-hover);}
+        .messages {
+            background: #f6e4e8;
+            color: var(--vermelho);
+            padding: 13px 12px 11px 12px;
+            border-radius: 10px;
+            margin-bottom: 19px;
+            text-align: center;
+            font-size: 1.09em;
+        }
+        .search-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .count-coop {
+            background: var(--azul);
+            color: #fff;
+            font-weight: 800;
+            padding: 4px 18px;
+            border-radius: 14px;
+            font-size: 1.09em;
+            font-family: 'Orbitron', Arial, sans-serif;
+            box-shadow: 0 1px 7px #1849c713;
+            letter-spacing: 1px;
+        }
+        .search-bar {
+            margin: 0 0 18px 0;
+            border: 1.5px solid var(--cinza2);
+            background: #f7fafd;
+            border-radius: 10px;
+            font-size: 1.11em;
+        }
+        .coop-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(315px, 1fr));
+            gap: 30px 22px;
+        }
+        .coop-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 2.3px solid #dde8fa;
+            box-shadow: var(--shadow-card);
+            padding: 1.18em 1.08em 1.05em 1.18em;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            min-height: 120px;
+            justify-content: space-between;
+            animation: fadein .7s .18s backwards;
+            transition: box-shadow .14s, border .15s, transform .17s;
+        }
+        .coop-card:hover {
+            box-shadow: 0 10px 38px #1849c72e;
+            border: 2.7px solid var(--azul);
+            transform: translateY(-4px) scale(1.028);
+        }
+        .coop-inativo {
+            opacity: .68;
+            filter: grayscale(.75) brightness(0.97);
+            background: #f7f8fb;
+            border: 1.7px dashed #c8d7f0;
+            box-shadow: none;
+        }
+        .coop-nome {
+            color: var(--azul2);
+            font-weight: 900;
+            font-size: 1.21em;
+            letter-spacing: .01em;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            max-width: 200px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 13px 3px 11px;
+            border-radius: 19px;
+            font-size: 1em;
+            font-weight: 900;
+            margin-left: 12px;
+            vertical-align: middle;
+            letter-spacing: 0.3px;
+            border: 1.7px solid transparent;
+        }
+        .ativo { background: #e8fff0; color: var(--verde); border: 1.5px solid #12c86333; }
+        .inativo { background: #fff1f1; color: var(--vermelho); border: 1.5px solid #e04b5b33; }
+        .actions-row {
+            display: flex;
+            gap: 9px;
+            align-items: center;
+            margin-top: 7px;
+            flex-wrap: wrap;
+        }
+        .edit-form input[type="text"], .edit-form input[type="password"] {
+            width: 90%;
+            font-size: 1.01em;
+            border-radius: 7px;
+            margin-bottom: 2px;
+        }
+        .btn-small {
+            width: auto;
+            min-width: 84px;
+            padding: 8px 14px;
+            font-size: .98em;
+            margin: 0;
+            box-shadow: none;
+        }
+        .btn-status {
+            min-width: 115px;
+            font-size: 1.04em;
+            font-weight: 900;
+            background: var(--verde);
+            color: #fff;
+            border: 1.8px solid var(--verde);
+            box-shadow: 0 1px 9px #18c75b15;
+            transition: background .13s, color .13s;
+        }
+        .btn-status:hover {
+            background: var(--verde-hover);
+            color: #fff;
+        }
+        .btn-status.btn-ativar {
+            background: #e8eae7;
+            color: #98b09f;
+            border: 1.5px solid #b5cab7;
+            font-weight: 800;
+        }
+        .btn-status.btn-ativar:hover {
+            background: var(--verde);
+            color: #fff;
+            border: 1.5px solid var(--verde-hover);
+        }
+        .btn-delete {
+            background: #fff;
+            color: var(--vermelho);
+            border: 1.7px solid var(--vermelho);
+            box-shadow: none;
+            min-width: 80px;
+        }
+        .btn-delete:hover { background: #ffeaea; color: var(--vermelho);}
+        .btn i, .btn-small i { font-size: 1.07em; margin-right: 3px; }
+        /* Responsivo */
+        @media (max-width: 1200px) {
+            .coop-list { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 900px) {
+            .container { flex-direction: column; gap:0; padding: 0 4vw 30px 4vw;}
+            .panel, .main-content { min-width: 0; padding: 1.4rem 1.1rem 1.2rem 1.1rem;}
+            .coop-list { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 550px) {
+            .header-bar { font-size: 1.28em; padding: 19px 0 19px 0; }
+            .coop-card { padding: .7em .55em .65em .65em; }
+            .panel, .main-content { padding: .95rem .5rem .6rem .5rem;}
+        }
+    </style>
+</head>
+<body>
+    <div class="header-bar">
+        Gestão de Cooperados - COOPEX
+    </div>
+    <div class="container">
+        <!-- Painel de Cadastro -->
+        <div class="panel">
+            <div class="form-title">Novo Cooperado</div>
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="messages">
+                    <ul style="list-style:none;padding-left:0;margin:0;">
+                    {% for msg in messages %}
+                        <li>{{ msg }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% endwith %}
+            <form method="POST" action="{{ url_for('cadastrar_cooperado') }}" autocomplete="off">
+                <label for="nome">Nome:</label>
+                <input type="text" name="nome" id="nome" required maxlength="80" autocomplete="off"/>
+
+                <label for="senha">Senha:</label>
+                <input type="password" name="senha" id="senha" required maxlength="40" autocomplete="new-password"/>
+
+                <button type="submit"><i class="bi bi-plus-circle"></i> Cadastrar</button>
+            </form>
+            <a class="back-link" href="{{ url_for('admin') }}"><i class="bi bi-arrow-left-circle"></i> Voltar ao painel principal</a>
+        </div>
+        <!-- Lista de Cooperados -->
+        <div class="main-content">
+            <div class="search-row">
+                <div style="font-family:'Orbitron',Arial,sans-serif;font-size:1.13em;color:var(--azul);font-weight:800;">
+                    Cooperados cadastrados
+                </div>
+                <span class="count-coop" id="qtd-cooperados">{{ cooperados|length }}</span>
+            </div>
+            <input class="search-bar" type="text" placeholder="Buscar cooperado..." id="buscaCooperado" autocomplete="off">
+            <div class="coop-list" id="coopList">
+                {% for c in cooperados %}
+                <div class="coop-card{% if not c.ativo %} coop-inativo{% endif %}" data-nome="{{ c.nome|lower }}">
+                    <div class="coop-nome" title="{{ c.nome }}">
+                        <i class="bi bi-person-badge"></i>
+                        {{ c.nome }}
+                        {% if c.ativo %}
+                            <span class="badge-status ativo"><i class="bi bi-check-circle"></i> Ativo</span>
+                        {% else %}
+                            <span class="badge-status inativo"><i class="bi bi-x-circle"></i> Inativo</span>
+                        {% endif %}
+                    </div>
+                    <div class="actions-row">
+                        <form class="edit-form" method="POST" action="{{ url_for('atualizar_cooperado', coop_id=c.id) }}" style="display:inline;">
+                            <input type="text" name="novo_nome" value="{{ c.nome }}" required minlength="2" maxlength="80" placeholder="Novo nome"/>
+                            <button class="btn btn-small" type="submit" title="Salvar nome"><i class="bi bi-save2"></i>Salvar</button>
+                        </form>
+                        <form class="edit-form" method="POST" action="{{ url_for('atualizar_cooperado', coop_id=c.id) }}" style="display:inline;">
+                            <input type="password" name="nova_senha" placeholder="Nova senha" required minlength="3" maxlength="40" />
+                            <button class="btn btn-small" type="submit" title="Atualizar senha"><i class="bi bi-key"></i>Senha</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('mudar_status_cooperado', coop_id=c.id) }}" style="display:inline;">
+                            {% if c.ativo %}
+                                <button class="btn btn-small btn-status" type="submit" name="novo_status" value="0" title="Desativar cooperado"><i class="bi bi-person-x"></i> Desativar</button>
+                            {% else %}
+                                <button class="btn btn-small btn-status btn-ativar" type="submit" name="novo_status" value="1" title="Ativar cooperado"><i class="bi bi-person-check"></i> Ativar</button>
+                            {% endif %}
+                        </form>
+                        <form method="POST" action="{{ url_for('excluir_cooperado', coop_id=c.id) }}" onsubmit="return confirm('Excluir cooperado {{c.nome}}?');" style="display:inline;">
+                            <button class="btn btn-small btn-delete" type="submit" title="Excluir"><i class="bi bi-trash3"></i>Excluir</button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div style="color:#a0a5b2;font-size:1.05em;text-align:center;padding:1.3em;">
+                    Nenhum cooperado cadastrado.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script>
+        // Busca cooperado dinâmico
+        const busca = document.getElementById('buscaCooperado');
+        const cards = Array.from(document.querySelectorAll('.coop-card'));
+        const qtdSpan = document.getElementById('qtd-cooperados');
+        busca.addEventListener('input', function() {
+            const termo = (busca.value||'').toLowerCase();
+            let total = 0;
+            cards.forEach(card => {
+                const nome = card.getAttribute('data-nome');
+                const show = !termo || nome.includes(termo);
+                card.style.display = show ? '' : 'none';
+                if(show) total++;
+            });
+            qtdSpan.textContent = total;
+        });
+    </script>
+</body>
+</html>

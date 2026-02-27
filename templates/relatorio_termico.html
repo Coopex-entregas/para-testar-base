@@ -1,0 +1,122 @@
+<!-- templates/relatorio_termico.html -->
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Relatório térmico</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { font-size: 12px; }
+    html, body { margin:0; padding:0; }
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      -webkit-print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    .ticket {
+      width: 80mm;
+      max-width: 80mm;
+      padding: 6px 8px 10px;
+      box-sizing: border-box;
+    }
+    .header { text-align:center; }
+    .logo {
+      width: 58mm; max-width: 58mm;
+      margin: 4px auto 4px;
+      display:block;
+    }
+    h1, h2, h3, p { margin: 0; }
+    .coop-title { font-size: 0.95rem; line-height: 1.25rem; font-weight: 700; }
+    .coop-sub  { font-size: 0.9rem; line-height: 1.15rem; }
+    .muted { color:#444; }
+    .line { border-top: 1px dashed #000; margin: 6px 0; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding: 4px 0; vertical-align:top; }
+    th { border-bottom: 1px solid #000; }
+    td.val { text-align:right; white-space:nowrap; }
+    .row-date { font-size: 0.9rem; color:#333; }
+    .total { font-weight:700; border-top:1px solid #000; padding-top:6px; }
+    .center { text-align:center; }
+    .small { font-size:0.9rem; }
+    .footer { margin-top:8px; text-align:center; }
+    @media print { .no-print { display:none !important; } body { margin:0; } }
+    @page { size: 80mm auto; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <div class="header">
+      <img class="logo" src="{{ url_for('static', filename='logo_coopex.png') }}" alt="Logo" onerror="this.style.display='none'">
+
+      <!-- Cabeçalho institucional -->
+      <div class="coop-title">COOPERATIVA DE TRABALHADORES DE ENTREGAS DO RIO GRANDE DO NORTE - COOPEX</div>
+      <div class="coop-sub">CNPJ: 05 289.938/0001-97</div>
+      <div class="coop-sub">Rua: José Freire De Souza 22 - Lagoa Nova Natal-RN, Cep: 59075-140</div>
+      <div class="coop-sub">Fone/WhatsApp (84) 3234-9025 / 3231-5623 / 98111-0706</div>
+
+      <div class="small muted" style="margin-top:6px;">
+        Período: <b>{{ periodo_txt }}</b> •
+        Cooperado: <b>{{ coop_nome }}</b> •
+        Gerado: {{ agora.strftime('%d/%m/%Y %H:%M') }}
+      </div>
+    </div>
+
+    <div class="line"></div>
+
+    {% if entregas|length == 0 %}
+      <p class="center"><b>Nenhuma entrega no período.</b></p>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="val">Valor (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set ns = namespace(total=0) %}
+          {% for e in entregas %}
+            {% set dt = to_brasilia(e.data_atribuida or e.data_envio) %}
+            {% set ns.total = ns.total + (e.valor or 0) %}
+            <tr>
+              <td>
+                <b>{{ e.cliente }}</b><br>
+                <span class="row-date">
+                  {{ dt.strftime('%d/%m/%Y %H:%M') }}
+                  {% if e.cooperado %} • {{ e.cooperado.nome }}{% endif %}
+                  {% if e.pagamento %} • {{ e.pagamento }}{% endif %}
+                </span>
+              </td>
+              <td class="val">{{ '%.2f'|format(e.valor or 0) | replace('.', ',') }}</td>
+            </tr>
+          {% endfor %}
+          <tr>
+            <td class="total">TOTAL</td>
+            <td class="val total">{{ '%.2f'|format(ns.total) | replace('.', ',') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    {% endif %}
+
+    <div class="line"></div>
+
+    <!-- Mensagem de incentivo personalizada -->
+    {% set nome_msg = coop_nome if coop_nome and coop_nome|lower != 'todos' else 'parceiro(a)' %}
+    <div class="footer small">
+      <b>{{ nome_msg }}</b>, parabéns pela sua produção de hoje! Continue firme — consistência gera resultado.
+      Lembre-se de separar uma parte do que recebeu (por exemplo, 10%) para sua reserva e seus objetivos.
+      Sua dedicação inspira a cooperativa inteira. 💪
+    </div>
+
+    <div class="center no-print" style="margin-top:8px;">
+      <button onclick="window.print()">Imprimir</button>
+    </div>
+  </div>
+
+  <script>
+    // Autoimpressão ao abrir (pequeno atraso para carregar imagens)
+    setTimeout(function(){ try { window.print(); } catch(e){} }, 300);
+  </script>
+</body>
+</html>
+

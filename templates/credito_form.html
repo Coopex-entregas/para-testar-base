@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{{ 'Editar' if credito else 'Novo' }} crédito | Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{
+      --royal:#0033cc; --royal-2:#2750ff;
+      --bg:#f6f8ff; --card:#ffffff; --ink:#0a1b3f; --line:#e3e9ff;
+      --r:14px; --shadow:0 8px 30px rgba(0,30,130,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+    .wrap{
+      max-width:620px;
+      margin:30px auto;
+      padding:0 12px 24px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      padding:18px 16px 16px;
+    }
+    h2{margin:0 0 14px;font-size:1.1rem}
+    label{
+      display:block;
+      font-size:.86rem;
+      font-weight:700;
+      margin-bottom:4px;
+      color:#28409f;
+    }
+    input,select{
+      width:100%;
+      padding:9px 10px;
+      border-radius:12px;
+      border:1.5px solid #2f4de6;
+      font-size:.9rem;
+      font-weight:600;
+    }
+    input:focus,select:focus{
+      outline:none;
+      box-shadow:0 0 0 2px rgba(47,77,230,.2);
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    .col{flex:1 1 0;min-width:180px}
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top:14px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .btn{
+      border:none;
+      border-radius:999px;
+      padding:9px 16px;
+      font-weight:800;
+      cursor:pointer;
+      font-size:.9rem;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+    }
+    .btn.primary{
+      background:linear-gradient(90deg,var(--royal),var(--royal-2));
+      color:#fff;
+      box-shadow:0 6px 16px rgba(0,50,200,.18);
+    }
+    .btn.secondary{
+      background:#fff;
+      color:#2347c7;
+      border:1.5px solid #2f4de6;
+    }
+    .muted{font-size:.82rem;opacity:.8}
+    .money{font-weight:900;margin-top:4px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>{{ 'Editar' if credito else 'Novo' }} crédito</h2>
+
+      <form method="post">
+        <div class="row">
+          <div class="col">
+            <label>Cliente</label>
+            {% if credito %}
+              <!-- apenas exibe o ID do cliente; você pode trocar para nome se
+                   tiver acesso ao objeto cliente na view -->
+              <input type="text"
+                     value="ID {{ credito.cliente_id }}"
+                     disabled>
+              <div class="muted">Cliente fixo para este lançamento.</div>
+            {% else %}
+              <!-- usado se quiser aproveitar este form para novo crédito -->
+              <input type="number" name="cliente_id" required>
+            {% endif %}
+          </div>
+
+          <div class="col">
+            <label>Valor bruto (R$)</label>
+            <input type="number" step="0.01" name="valor"
+                   id="valor_bruto"
+                   value="{{ '%.2f'|format(credito.valor_bruto)|replace('.',',') if credito else '' }}"
+                   required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <label>Tipo de desconto</label>
+            {% set dt = (credito.desconto_tipo if credito else 'nenhum') %}
+            <select name="desconto_tipo" id="desconto_tipo">
+              <option value="nenhum"     {{ 'selected' if dt=='nenhum' }}>Nenhum</option>
+              <option value="percentual" {{ 'selected' if dt=='percentual' }}>Percentual (%)</option>
+              <option value="real"       {{ 'selected' if dt=='real' }}>Valor (R$)</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Valor do desconto</label>
+            <input type="number" step="0.01" name="desconto_valor"
+                   id="desconto_valor"
+                   value="{{ '%.2f'|format(credito.desconto_valor)|replace('.',',') if credito and credito.desconto_valor is not none else '0' }}">
+            <div class="muted" id="hint-desconto">Informe % quando for percentual.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="flex:1 1 100%">
+            <label>Motivo / observação</label>
+            <input type="text" name="motivo"
+                   value="{{ credito.motivo if credito else '' }}"
+                   maxlength="180">
+          </div>
+        </div>
+
+        <!-- preview do valor final só visual (backend continua calculando) -->
+        <div class="row">
+          <div class="col">
+            <span class="muted">Valor final (após desconto)</span>
+            <div class="money" id="valor_final_view">R$ 0,00</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <a class="btn secondary"
+             href="{{ url_for('creditos', cliente_id=(credito.cliente_id if credito else request.args.get('cliente_id'))) }}">
+            Cancelar
+          </a>
+          <button type="submit" class="btn primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const fmtBRL = (v)=> (new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(+v||0));
+
+    const $bruto = document.getElementById('valor_bruto');
+    const $tipo  = document.getElementById('desconto_tipo');
+    const $desc  = document.getElementById('desconto_valor');
+    const $finalV= document.getElementById('valor_final_view');
+    const $hint  = document.getElementById('hint-desconto');
+
+    function parseNumberPT(str){
+      if(!str) return 0;
+      // aceita tanto 100,50 quanto 100.50
+      str = String(str).replace(/\./g,'').replace(',', '.');
+      const n = parseFloat(str);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function calcFinal(){
+      const bruto = Math.max(0, parseNumberPT($bruto.value));
+      const tipo  = $tipo.value;
+      const d     = Math.max(0, parseNumberPT($desc.value));
+      let desconto = 0;
+
+      if(tipo === 'percentual'){
+        desconto = (bruto * d)/100;
+        $hint.textContent = 'Desconto em percentual (%)';
+      }else if(tipo === 'real'){
+        desconto = d;
+        $hint.textContent = 'Desconto em reais (R$)';
+      }else{
+        desconto = 0;
+        $hint.textContent = 'Nenhum desconto aplicado';
+      }
+
+      desconto = Math.min(desconto, bruto);
+      const final = bruto - desconto;
+      $finalV.textContent = fmtBRL(final);
+    }
+
+    ['input','change','blur'].forEach(evt=>{
+      $bruto.addEventListener(evt, calcFinal);
+      $tipo .addEventListener(evt, calcFinal);
+      $desc .addEventListener(evt, calcFinal);
+    });
+
+    // inicial
+    calcFinal();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Painel Analítico — Coopex</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  /* Coopex (azul + toque verde) */
+  --brand:#003399;
+  --brand2:#4f8cff;
+  --green:#12b981;
+
+  --text:#0f172a;
+  --muted:#64748b;
+
+  --bg:#f3f6ff;
+  --card:#ffffff;
+  --line:#dbe6ff;
+
+  --shadow:0 18px 50px rgba(9,15,40,.10);
+  --shadow2:0 10px 28px rgba(9,15,40,.08);
+
+  --r:20px;
+  --r2:16px;
+
+  --ring:0 0 0 4px rgba(79,140,255,.18);
+
+  --acc-blue:#2563eb;
+  --acc-green:#16a34a;
+  --acc-amber:#f59e0b;
+  --acc-indigo:#4f46e5;
+  --acc-cyan:#0891b2;
+  --acc-rose:#e11d48;
+  --acc-slate:#64748b;
+
+  --chip:#eef3ff;
+}
+
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(900px 520px at 12% -10%, rgba(79,140,255,.18), transparent 58%),
+    radial-gradient(900px 520px at 92% 0%, rgba(18,185,129,.14), transparent 55%),
+    linear-gradient(180deg, #f6f8ff 0%, #f1f5ff 100%);
+  font-size:13px;
+  line-height:1.25;
+}
+a{color:inherit;text-decoration:none}
+button,input,select{font-family:inherit}
+svg{display:block}
+
+.container{max-width:1560px;margin:0 auto;padding:0 18px}
+
+/* ====== TOP HEADER (sem menu lateral) ====== */
+.top{
+  position:sticky; top:0; z-index:60;
+  background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,255,255,.64));
+  backdrop-filter: blur(12px);
+  border-bottom:1px solid rgba(219,230,255,.9);
+}
+.top-inner{
+  padding:14px 0 10px;
+  display:grid;
+  grid-template-columns: 340px 1fr auto;
+  gap:12px;
+  align-items:center;
+}
+@media (max-width:1050px){
+  .top-inner{grid-template-columns:1fr; gap:10px;}
+}
+
+.brand{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border-radius:18px;
+  border:1px solid rgba(219,230,255,.9);
+  background:rgba(255,255,255,.86);
+  box-shadow:0 10px 28px rgba(9,15,40,.06);
+}
+.brand img{
+  width:44px;height:44px;border-radius:14px;
+  border:1px solid rgba(219,230,255,.95);
+  padding:6px;background:#fff;object-fit:contain;
+}
+.brand .t{min-width:0}
+.brand .t b{
+  display:block;
+  font-weight:950;
+  color:#0b2c6f;
+  font-size:13px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.brand .t small{
+  display:block; margin-top:2px;
+  color:var(--muted);
+  font-weight:850;
+  font-size:11px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+.controls{
+  display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap;
+}
+.search{
+  flex:1;
+  min-width:260px;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(219,230,255,.95);
+  background:rgba(255,255,255,.92);
+  box-shadow:0 10px 28px rgba(9,15,40,.05);
+}
+.search input{
+  border:none; outline:none; width:100%;
+  background:transparent;
+  font-weight:850; color:#0b2c6f;
+  font-size:12px;
+}
+.pill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(219,230,255,.95);
+  background:rgba(255,255,255,.92);
+  box-shadow:0 10px 28px rgba(9,15,40,.05);
+  font-weight:900; color:#0b2c6f;
+  font-size:12px;
+}
+.btn{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(219,230,255,.95);
+  background:rgba(255,255,255,.92);
+  box-shadow:0 10px 28px rgba(9,15,40,.05);
+  font-weight:900; cursor:pointer;
+  color:#0b2c6f; font-size:12px;
+}
+.btn:focus{outline:none;box-shadow:var(--ring)}
+.btn.primary{
+  background:linear-gradient(90deg,var(--brand),var(--brand2));
+  border-color:transparent;
+  color:#fff;
+}
+
+/* Tabs */
+.tabs{
+  padding:0 0 14px;
+}
+.tabs-row{
+  display:flex; gap:10px; flex-wrap:wrap;
+}
+.tab{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(219,230,255,.95);
+  background:rgba(255,255,255,.74);
+  box-shadow:0 10px 26px rgba(9,15,40,.04);
+  font-weight:950;
+  color:#0b2c6f;
+  cursor:pointer;
+  user-select:none;
+}
+.tab small{color:var(--muted); font-weight:850}
+.tab.active{
+  background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(244,248,255,.92));
+  border-color:#c9dbff;
+  box-shadow:var(--shadow2);
+}
+.tab:focus{outline:none;box-shadow:var(--ring)}
+
+/* ====== SECTIONS ====== */
+.section{display:none;padding:16px 0 22px}
+.section.active{display:block}
+
+/* ====== CARDS (novo estilo “inovador”) ====== */
+.card{
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(219,230,255,.9);
+  border-radius:var(--r);
+  box-shadow:var(--shadow2);
+  padding:16px;
+  backdrop-filter: blur(10px);
+}
+.card.soft{
+  background:rgba(255,255,255,.86);
+  box-shadow:0 12px 30px rgba(9,15,40,.06);
+}
+.card-title{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  margin-bottom:12px;
+}
+.card-title h2{
+  margin:0;
+  font-size:13px;
+  font-weight:950;
+  color:#0b2c6f;
+  letter-spacing:.12px;
+}
+.subtle{color:var(--muted);font-weight:850;font-size:11px}
+.hr{height:1px;background:#e9efff;border:0;margin:14px 0}
+
+/* KPI cards (estilo da imagem) */
+.kpis{
+  display:grid;
+  grid-template-columns: repeat(12, minmax(0,1fr));
+  gap:12px;
+}
+.kpiCard{
+  grid-column: span 3;
+  position:relative;
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,250,255,.92));
+  border:1px solid rgba(219,230,255,.95);
+  box-shadow:0 10px 24px rgba(9,15,40,.06);
+  padding:14px 14px 12px;
+  overflow:hidden;
+}
+.kpiCard:before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(420px 160px at 20% 0%, rgba(79,140,255,.14), transparent 60%),
+    radial-gradient(380px 140px at 90% 10%, rgba(18,185,129,.10), transparent 55%);
+  pointer-events:none;
+}
+.kpiInner{position:relative; z-index:1; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:start;}
+.kpiTop{
+  display:flex; flex-direction:column; gap:6px;
+  min-width:0;
+}
+.kpiTop .ttl{
+  font-size:11px;
+  letter-spacing:.10em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:950;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kpiTop .val{
+  font-size:18px;
+  font-weight:950;
+  color:#0f172a;
+  font-variant-numeric: tabular-nums;
+  line-height:1.15;
+  word-break:break-word;
+}
+.kpiTop .hint{
+  font-size:11px;
+  font-weight:850;
+  color:var(--muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kpiIcon{
+  width:40px;height:40px;border-radius:14px;
+  border:1px solid rgba(219,230,255,.95);
+  background:rgba(255,255,255,.9);
+  box-shadow:0 8px 18px rgba(9,15,40,.06);
+  display:flex; align-items:center; justify-content:center;
+  color:#0b2c6f;
+}
+.kpiBar{
+  position:absolute; left:0; top:0; bottom:0; width:6px;
+  background:var(--accent, var(--acc-blue));
+  opacity:.95;
+}
+
+@media (max-width:1280px){ .kpiCard{grid-column:span 4;} }
+@media (max-width:980px){ .kpiCard{grid-column:span 6;} }
+@media (max-width:680px){ .kpiCard{grid-column:span 12;} }
+
+/* Grids */
+.grid2{display:grid;grid-template-columns:1.05fr .95fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:1100px){ .grid2{grid-template-columns:1fr} .grid3{grid-template-columns:1fr} }
+
+/* Charts */
+.chartWrap{
+  position:relative;
+  height:280px;
+  border-radius:16px;
+}
+.chartWrap.tall{height:340px}
+@media (max-width:680px){
+  .chartWrap{height:240px}
+  .chartWrap.tall{height:280px}
+}
+canvas{width:100% !important; height:100% !important}
+
+/* Table */
+.table-wrap{
+  overflow:auto;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid rgba(219,230,255,.95);
+  box-shadow:0 12px 30px rgba(9,15,40,.06);
+}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th,td{padding:11px 10px;border-bottom:1px solid #edf2ff;text-align:left;white-space:nowrap}
+th{
+  background:#f5f7ff;color:#0b2c6f;font-weight:950;
+  position:sticky;top:0;cursor:pointer;user-select:none;font-size:12px;
+}
+tbody tr:hover{background:#f6f9ff}
+.t-right{text-align:right}
+.t-center{text-align:center}
+
+/* Chips */
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:999px;
+  background:var(--chip); border:1px solid #cfe0ff;
+  color:#0b2c6f; font-weight:900; font-size:12px;
+}
+.chip.ok{background:#e9fff3;border-color:#bfead7;color:#0a7a3a}
+.chip.warn{background:#fff6e8;border-color:#ffe2b5;color:#8a4b00}
+.chip.danger{background:#ffeef1;border-color:#ffc6d0;color:#a1122a}
+
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:999px;
+  border:1px solid rgba(219,230,255,.95);
+  background:#fff;font-weight:900;color:#0b2c6f;
+  font-size:12px;
+}
+
+.no-data{
+  display:flex;align-items:center;justify-content:center;
+  min-height:160px;
+  border:2px dashed #e0e8ff;
+  border-radius:16px;
+  color:var(--muted);
+  font-weight:900;
+  background:rgba(255,255,255,.55);
+}
+
+/* Quick filters */
+.quickbar{
+  display:grid;
+  grid-template-columns: 170px 220px 220px 1fr;
+  gap:10px;
+  align-items:end;
+  margin-bottom:12px;
+}
+@media (max-width:1100px){
+  .quickbar{grid-template-columns:1fr 1fr; }
+}
+@media (max-width:680px){
+  .quickbar{grid-template-columns:1fr; }
+}
+.qfield label{display:block;font-size:11px;font-weight:950;color:#0b2c6f;margin-bottom:6px}
+.qfield input,.qfield select{
+  width:100%;
+  border:1px solid #b8c7ff;background:#f7f9ff;color:#0b2c6f;
+  border-radius:14px;padding:10px 12px;font-weight:850;min-height:42px;
+  font-size:12px;
+}
+.qfield input:focus,.qfield select:focus{outline:none;box-shadow:var(--ring);border-color:#9fb7ff}
+.toggles{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tgl{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 12px;border-radius:999px;
+  background:#fff;border:1px solid rgba(219,230,255,.95);
+  box-shadow:0 10px 28px rgba(9,15,40,.05);
+  cursor:pointer;
+  font-weight:900;color:#0b2c6f;
+  user-select:none;
+  font-size:12px;
+}
+.tgl.on{border-color:#c9dbff;background:#f4f8ff}
+
+/* Ranking list */
+.rank{list-style:none;margin:0;padding:0}
+.rank li{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 8px;border-bottom:1px dashed #e8eeff;
+}
+.rank li:last-child{border-bottom:0}
+.medal{
+  width:28px;height:28px;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:950;color:#fff; flex:0 0 auto;
+}
+.m1{background:#f59e0b}.m2{background:#94a3b8}.m3{background:#d97706}.mX{background:#4f8cff}
+.rLabel{flex:1;font-weight:950;color:#0b2c6f;overflow:hidden;text-overflow:ellipsis}
+.rVal{font-weight:950;color:#111827;opacity:.95;white-space:nowrap}
+
+/* Modal filtros */
+.modal{
+  position:fixed; inset:0; z-index:90;
+  display:none; align-items:center; justify-content:center;
+  padding:16px;
+}
+.modal.show{display:flex}
+.modal-bg{
+  position:absolute; inset:0;
+  background:rgba(10,15,40,.50);
+  backdrop-filter: blur(4px);
+}
+.modal-card{
+  position:relative;
+  width:1100px; max-width:96vw; max-height:90vh; overflow:auto;
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(219,230,255,.95);
+  border-radius:22px;
+  box-shadow:var(--shadow);
+  padding:14px;
+  backdrop-filter: blur(12px);
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 6px 12px;border-bottom:1px solid rgba(219,230,255,.95);
+}
+.modal-head strong{font-weight:950;color:#0b2c6f}
+.iconbtn{
+  width:44px;height:44px;border-radius:14px;cursor:pointer;
+  background:#fff;border:1px solid rgba(219,230,255,.95);
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 28px rgba(9,15,40,.05);
+}
+.iconbtn:focus{outline:none;box-shadow:var(--ring)}
+.formgrid{
+  display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;
+  padding:12px 6px 6px;
+}
+.field{grid-column:span 3}
+.field.w6{grid-column:span 6}
+.field.w12{grid-column:span 12}
+.field label{display:block;font-size:11px;font-weight:950;color:#0b2c6f;margin-bottom:6px}
+.field input,.field select{
+  width:100%;
+  border:1px solid #b8c7ff;background:#f7f9ff;color:#0b2c6f;
+  border-radius:14px;padding:10px 12px;font-weight:850;min-height:42px;
+  font-size:12px;
+}
+.field input:focus,.field select:focus{outline:none;box-shadow:var(--ring);border-color:#9fb7ff}
+.modal-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding:12px 6px}
+.btn2{
+  border-radius:999px;padding:10px 12px;font-weight:950;cursor:pointer;
+  border:1px solid rgba(219,230,255,.95);
+  background:#fff;color:#003399;
+  font-size:12px;
+}
+.btn2.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));border-color:transparent;color:#fff}
+.btn2:focus{outline:none;box-shadow:var(--ring)}
+
+/* Toast */
+.toast{
+  position:fixed; right:14px; bottom:14px; z-index:95;
+  display:flex;flex-direction:column;gap:10px;
+}
+.toast .t{
+  background:#fff;border:1px solid rgba(219,230,255,.95);
+  border-left:6px solid var(--acc-blue);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  padding:10px 12px;
+  min-width:240px; max-width:360px;
+  font-weight:900;color:#0b2c6f;
+}
+.toast .t small{display:block;color:var(--muted);font-weight:850;margin-top:4px}
+
+/* Print */
+@media print{
+  .top,.modal,.toast{display:none !important}
+  body{background:#fff}
+  .card{box-shadow:none}
+}
+</style>
+</head>
+
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- ====== HEADER (sem sidebar) ====== -->
+<header class="top">
+  <div class="container">
+    <div class="top-inner">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='logo_kratos.png') }}" alt="Logo Coopex"
+             onerror="this.onerror=null;this.src='https://via.placeholder.com/44?text=LOGO';">
+        <div class="t">
+          <b>Painel Analítico</b>
+          <small>{{ periodo_legivel or 'todo o período' }}</small>
+        </div>
+      </div>
+
+      <div class="search" title="Busca rápida (cooperados)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M21 21l-4.3-4.3" stroke="#4f8cff" stroke-width="2.2" stroke-linecap="round"/>
+          <circle cx="11" cy="11" r="6.5" stroke="#003399" stroke-width="2.2"/>
+        </svg>
+        <input id="qGlobal" type="search" placeholder="Buscar cooperado..." />
+      </div>
+
+      <div class="controls">
+        <span class="pill" id="pillPeriodo" title="Período (servidor)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M7 3v3M17 3v3" stroke="#003399" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M4 9h16" stroke="#4f8cff" stroke-width="2.2" stroke-linecap="round"/>
+            <rect x="4.5" y="6.5" width="15" height="14" rx="3" stroke="#003399" stroke-width="2.2"/>
+          </svg>
+          {{ periodo_legivel or 'todo o período' }}
+        </span>
+
+        <button class="btn" id="btnOpenFilters" type="button" title="Filtros do servidor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 6h16M7 12h10M10 18h4" stroke="#003399" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+          Filtros
+        </button>
+
+        <a class="btn" href="{{ url_for('admin') }}" title="Voltar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="#003399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Voltar
+        </a>
+
+        <button class="btn primary" id="btnPrint" type="button" title="Imprimir">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M7 9V4h10v5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+            <rect x="6" y="13" width="12" height="7" rx="2" stroke="#fff" stroke-width="2.2"/>
+            <path d="M6 12H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-1" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+          Imprimir
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tabs-row" role="tablist" aria-label="Seções do painel">
+        <button class="tab active" data-sec="sec-resumo" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Resumo</span><small>KPIs • Alertas</small>
+          </div>
+        </button>
+
+        <button class="tab" data-sec="sec-cooperados" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Cooperados</span><small>Tabela • Ranking</small>
+          </div>
+        </button>
+
+        <button class="tab" data-sec="sec-graficos" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Gráficos</span><small>Dia • Status • Coop</small>
+          </div>
+        </button>
+
+        <button class="tab" data-sec="sec-rankings" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Rankings</span><small>Bairros • Clientes</small>
+          </div>
+        </button>
+
+        <button class="tab" data-sec="sec-crescimento" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Crescimento</span><small>Anual • YoY</small>
+          </div>
+        </button>
+
+        <button class="tab" data-sec="sec-export" type="button">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
+            <span>Exportar</span><small>Excel • CSV • PNG</small>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ====== SECTION: RESUMO ====== -->
+  <section class="section active" id="sec-resumo">
+    <div class="card">
+      <div class="card-title">
+        <div>
+          <h2>Resumo</h2>
+          <div class="subtle" id="subResumo">Servidor</div>
+        </div>
+        <div class="chips">
+          <span class="chip">Entregas <b>{{ estatisticas.total or 0 }}</b></span>
+          <span class="chip ok">Pagas <b>{{ estatisticas.pagas or 0 }}</b></span>
+          <span class="chip warn">Pendentes <b>{{ estatisticas.pendentes or 0 }}</b></span>
+          <span class="chip">R$ <b>{{ '%.2f'|format(estatisticas.total_valor or 0) }}</b></span>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpiCard" style="--accent:var(--acc-blue)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">TOTAL PRODUÇÕES</div>
+              <div class="val" id="kpiTotal">{{ estatisticas.total or 0 }}</div>
+              <div class="hint">Bruto no período</div>
+            </div>
+            <div class="kpiIcon" title="Entregas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h16M7 12h10M9 17h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-indigo)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">FATURAMENTO (R$)</div>
+              <div class="val" id="kpiTotalValor">{{ '%.2f'|format(estatisticas.total_valor or 0) }}</div>
+              <div class="hint">Bruto no período</div>
+            </div>
+            <div class="kpiIcon" title="Faturamento">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <rect x="5" y="10" width="14" height="11" rx="3" stroke="currentColor" stroke-width="2.2"/>
+                <path d="M12 15v2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-green)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">% PAGAS</div>
+              <div class="val" id="kpiPctPagas">—</div>
+              <div class="hint">Pagas / total</div>
+            </div>
+            <div class="kpiIcon" title="% Pagas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 17l4-4 3 3 5-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 19h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-amber)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">TICKET MÉDIO (R$)</div>
+              <div class="val" id="kpiTicket">{{ '%.2f'|format(estatisticas.ticket_medio or 0) }}</div>
+              <div class="hint">R$ / entrega</div>
+            </div>
+            <div class="kpiIcon" title="Ticket">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 7h10v4a2 2 0 0 0 2 2v4a2 2 0 0 0-2 2H7a2 2 0 0 0-2-2v-4a2 2 0 0 0 2-2V7z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M10 11h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-cyan)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">COOPERADOS</div>
+              <div class="val" id="kpiCoops">—</div>
+              <div class="hint">Filtrados</div>
+            </div>
+            <div class="kpiIcon" title="Cooperados">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M16 11a4 4 0 1 0-8 0" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-rose)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">CONCENTRAÇÃO TOP 3</div>
+              <div class="val" id="kpiTop3">—</div>
+              <div class="hint">Participação no total</div>
+            </div>
+            <div class="kpiIcon" title="Concentração">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M4 20V9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M10 20V4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M16 20v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M22 20v-11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-indigo)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">MAIOR TICKET (R$)</div>
+              <div class="val" id="kpiMaxTicket">—</div>
+              <div class="hint" id="kpiMaxTicketNome">—</div>
+            </div>
+            <div class="kpiIcon" title="Maior ticket">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3l3 7h7l-5.5 4.2L18 21l-6-4-6 4 1.5-6.8L2 10h7l3-7z" stroke="currentColor" stroke-width="2.0" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-slate)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">MENOR TICKET (R$)</div>
+              <div class="val" id="kpiMinTicket">—</div>
+              <div class="hint" id="kpiMinTicketNome">—</div>
+            </div>
+            <div class="kpiIcon" title="Menor ticket">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M4 10h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M12 4v16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".35"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-blue)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">DIA TOP</div>
+              <div class="val" id="kpiDiaTop">{{ estatisticas.dia_top.nome or '-' }}</div>
+              <div class="hint">Mais entregas (servidor)</div>
+            </div>
+            <div class="kpiIcon" title="Dia top">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 3v3M17 3v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M4 9h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <rect x="4.5" y="6.5" width="15" height="14" rx="3" stroke="currentColor" stroke-width="2.2"/>
+                <path d="M8 13h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-amber)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">ALERTAS</div>
+              <div class="val" id="kpiAlertasCount">—</div>
+              <div class="hint">Sinais no recorte</div>
+            </div>
+            <div class="kpiIcon" title="Alertas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M12 18.2h.01" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiCard" style="--accent:var(--acc-green)">
+          <span class="kpiBar"></span>
+          <div class="kpiInner">
+            <div class="kpiTop">
+              <div class="ttl">PICO</div>
+              <div class="val" id="kpiPico">—</div>
+              <div class="hint">Top horário</div>
+            </div>
+            <div class="kpiIcon" title="Pico">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v9l4 2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.2" opacity=".35"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="card soft">
+        <div class="card-title">
+          <div>
+            <h2>Alertas</h2>
+            <div class="subtle" id="subAlertas">—</div>
+          </div>
+          <div class="chips" id="chipsPico"></div>
+        </div>
+        <div class="chips" id="chipsAlertas"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SECTION: COOPERADOS ====== -->
+  <section class="section" id="sec-cooperados">
+    <div class="card">
+      <div class="card-title">
+        <div>
+          <h2>Cooperados</h2>
+          <div class="subtle">Ordene clicando nos títulos da tabela</div>
+        </div>
+        <div class="chips">
+          <span class="badge" id="badgeInstant">—</span>
+          <button class="btn" id="btnCopy" type="button" title="Copiar tabela">Copiar</button>
+          <button class="btn" id="btnCSV" type="button" title="Baixar CSV">CSV</button>
+        </div>
+      </div>
+
+      <div class="quickbar">
+        <div class="qfield">
+          <label for="qTopN">Top N</label>
+          <select id="qTopN">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+            <option value="99999">Todos</option>
+          </select>
+        </div>
+
+        <div class="qfield">
+          <label for="qTicket">Ticket (min–max)</label>
+          <input id="qTicket" type="text" inputmode="decimal" placeholder="ex: 6.00-25.00">
+        </div>
+
+        <div class="qfield">
+          <label for="qValor">Valor total (min–max)</label>
+          <input id="qValor" type="text" inputmode="decimal" placeholder="ex: 200-3500">
+        </div>
+
+        <div class="toggles" style="align-self:end">
+          <div class="tgl" id="tglZeros" title="Ocultar cooperados com 0 entregas">Zeros</div>
+          <div class="tgl" id="tglDense" title="Densidade da tabela">Denso</div>
+          <button class="btn" id="btnClearQuick" type="button" title="Limpar instantâneos">Limpar</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="tblCooperados">
+          <thead>
+            <tr>
+              <th data-k="nome">Cooperado</th>
+              <th class="t-center" data-k="qtd">Qtd</th>
+              <th class="t-right" data-k="total_valor">R$ total</th>
+              <th class="t-right" data-k="ticket">R$ ticket</th>
+              <th class="t-right" data-k="percent">% total</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyCoops"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SECTION: GRÁFICOS (aba só de gráficos) ====== -->
+  <section class="section" id="sec-graficos">
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Entregas por dia</h2>
+            <div class="subtle">Linha (período)</div>
+          </div>
+          <button class="btn" type="button" data-save="chartDia">Baixar PNG</button>
+        </div>
+        {% if chart_entregas_labels and chart_entregas_labels|length %}
+          <div class="chartWrap"><canvas id="chartDia"></canvas></div>
+        {% else %}
+          <div class="no-data">Sem dados</div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Status</h2>
+            <div class="subtle">Pagas x Pendentes</div>
+          </div>
+          <button class="btn" type="button" data-save="chartStatus">Baixar PNG</button>
+        </div>
+        <div class="chartWrap"><canvas id="chartStatus"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Faturamento por cooperado</h2>
+            <div class="subtle">Barras (top filtrado)</div>
+          </div>
+          <button class="btn" type="button" data-save="chartCoop">Baixar PNG</button>
+        </div>
+        <div class="chartWrap"><canvas id="chartCoop"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SECTION: RANKINGS ====== -->
+  <section class="section" id="sec-rankings">
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>TOP cooperados</h2>
+            <div class="subtle" id="subTopCoops">Servidor</div>
+          </div>
+        </div>
+        <ul class="rank" id="rankCoops"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Horários de pico</h2>
+            <div class="subtle">Top 3</div>
+          </div>
+        </div>
+        <div class="chips" id="chipsPico2"></div>
+
+        <div class="hr"></div>
+
+        <div class="chips">
+          <span class="chip ok">Pgto top: {{ estatisticas.pgto_top or '-' }}</span>
+          <span class="chip">Cliente: {{ cliente or '—' }}</span>
+          <span class="chip">Pagamento: {{ status_pagamento or 'todos' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Bairros (ENTREGA)</h2>
+            <div class="subtle">Top 10</div>
+          </div>
+        </div>
+        <ul class="rank">
+          {% for r in ranking_bairros[:10] %}
+          <li>
+            <span class="medal {{ 'm1' if loop.index==1 else ('m2' if loop.index==2 else ('m3' if loop.index==3 else 'mX')) }}">{{ loop.index }}</span>
+            <span class="rLabel">{{ r.bairro }}</span>
+            <span class="rVal">{{ r.qtd }}</span>
+          </li>
+          {% endfor %}
+          {% if ranking_bairros|length == 0 %}
+          <li><span class="rLabel">Sem dados</span></li>
+          {% endif %}
+        </ul>
+      </div>
+
+      {% set rb_origem = ranking_bairros_origem | default([]) %}
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Bairros (ORIGEM)</h2>
+            <div class="subtle">Top 10</div>
+          </div>
+        </div>
+        <ul class="rank">
+          {% for r in rb_origem[:10] %}
+          <li>
+            <span class="medal {{ 'm1' if loop.index==1 else ('m2' if loop.index==2 else ('m3' if loop.index==3 else 'mX')) }}">{{ loop.index }}</span>
+            <span class="rLabel">{{ r.bairro }}</span>
+            <span class="rVal">{{ r.qtd }}</span>
+          </li>
+          {% endfor %}
+          {% if rb_origem|length == 0 %}
+          <li><span class="rLabel">Sem dados</span></li>
+          {% endif %}
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Clientes</h2>
+            <div class="subtle">Top 10</div>
+          </div>
+        </div>
+        <ul class="rank">
+          {% for r in ranking_clientes[:10] %}
+          <li>
+            <span class="medal {{ 'm1' if loop.index==1 else ('m2' if loop.index==2 else ('m3' if loop.index==3 else 'mX')) }}">{{ loop.index }}</span>
+            <span class="rLabel">{{ r.cliente }}</span>
+            <span class="rVal">R$ {{ '%.2f'|format(r.total or 0) }} • {{ r.qtd }}</span>
+          </li>
+          {% endfor %}
+          {% if ranking_clientes|length == 0 %}
+          <li><span class="rLabel">Sem dados</span></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SECTION: CRESCIMENTO (cards um abaixo do outro + números não cortam) ====== -->
+  <section class="section" id="sec-crescimento">
+    {% if chart_ano_labels and chart_ano_labels|length and chart_ano_totais and chart_ano_totais|length %}
+
+    <div style="display:grid; gap:12px">
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Crescimento anual</h2>
+            <div class="subtle">Barra = Valor • Linha = YoY (%)</div>
+          </div>
+          <div class="chips">
+            <span class="chip">Métrica</span>
+            <select id="selMetrica"
+              style="border:1px solid #b8c7ff;background:#f7f9ff;color:#0b2c6f;border-radius:14px;padding:10px 12px;font-weight:850;min-height:42px;font-size:12px">
+              <option value="faturamento" selected>Faturamento (R$)</option>
+              <option value="entregas">Entregas</option>
+              <option value="ticket">Ticket (R$)</option>
+            </select>
+            <button class="btn" type="button" data-save="chartAno">Baixar PNG</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Gráfico anual</h2>
+            <div class="subtle">Visualização completa</div>
+          </div>
+        </div>
+        <div class="chartWrap tall">
+          <canvas id="chartAno"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <h2>Indicadores do período</h2>
+            <div class="subtle">Sem cortar números</div>
+          </div>
+        </div>
+
+        <div class="kpis" id="kpisCrescimento" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
+          <div class="kpiCard" style="--accent:var(--acc-blue); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">ÚLTIMO ANO</div>
+                <div class="val" id="kpiUltAno">—</div>
+                <div class="hint">Ano mais recente</div>
+              </div>
+              <div class="kpiIcon">A</div>
+            </div>
+          </div>
+
+          <div class="kpiCard" style="--accent:var(--acc-indigo); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">ÚLTIMO VALOR</div>
+                <div class="val" id="kpiUltVal">—</div>
+                <div class="hint" id="lblUltVal">—</div>
+              </div>
+              <div class="kpiIcon">$</div>
+            </div>
+          </div>
+
+          <div class="kpiCard" style="--accent:var(--acc-green); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">YOY</div>
+                <div class="val" id="kpiYoY">—</div>
+                <div class="hint">Vs. anterior</div>
+              </div>
+              <div class="kpiIcon">%</div>
+            </div>
+          </div>
+
+          <div class="kpiCard" style="--accent:var(--acc-slate); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">MÉDIA</div>
+                <div class="val" id="kpiMedia">—</div>
+                <div class="hint" id="lblMedia">—</div>
+              </div>
+              <div class="kpiIcon">Ø</div>
+            </div>
+          </div>
+
+          <div class="kpiCard" style="--accent:var(--acc-indigo); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">TOTAL</div>
+                <div class="val" id="kpiTotPeriodo">—</div>
+                <div class="hint" id="lblTotPeriodo">—</div>
+              </div>
+              <div class="kpiIcon">Σ</div>
+            </div>
+          </div>
+
+          <div class="kpiCard" style="--accent:var(--acc-rose); grid-column:auto">
+            <span class="kpiBar"></span>
+            <div class="kpiInner">
+              <div class="kpiTop">
+                <div class="ttl">YOY MÉDIO</div>
+                <div class="val" id="kpiYoYAvg">—</div>
+                <div class="hint">Média</div>
+              </div>
+              <div class="kpiIcon">↕</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% else %}
+      <div class="card"><div class="no-data">Sem dados</div></div>
+    {% endif %}
+  </section>
+
+  <!-- ====== SECTION: EXPORT ====== -->
+  <section class="section" id="sec-export">
+    <div class="card">
+      <div class="card-title">
+        <div>
+          <h2>Exportar</h2>
+          <div class="subtle">Excel, CSV e imagens (PNG) dos gráficos</div>
+        </div>
+      </div>
+
+      <div class="chips">
+        <a class="btn"
+           href="{{ url_for('estatisticas_cooperado_exportar_xlsx') }}?cooperado_id={{ cooperado_id }}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}&status_pagamento={{ status_pagamento }}&cliente={{ cliente|urlencode if cliente }}">
+          Excel
+        </a>
+
+        <button class="btn" type="button" id="btnCSV2">CSV</button>
+
+        <button class="btn" type="button" data-save="chartDia">PNG • Dia</button>
+        <button class="btn" type="button" data-save="chartCoop">PNG • Coop</button>
+        <button class="btn" type="button" data-save="chartStatus">PNG • Status</button>
+        <button class="btn" type="button" data-save="chartAno">PNG • Anual</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ====== MODAL FILTROS (SERVIDOR) ====== -->
+<div class="modal" id="modal">
+  <div class="modal-bg" id="modalBg"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Filtros">
+    <div class="modal-head">
+      <strong>Filtros (Servidor)</strong>
+      <button class="iconbtn" id="btnCloseModal" type="button" aria-label="Fechar filtros">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M6 6l12 12M18 6L6 18" stroke="#003399" stroke-width="2.3" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <form method="GET" action="{{ url_for('estatisticas_cooperado') }}">
+      <div class="formgrid">
+
+        <div class="field w6">
+          <label for="cooperado">Cooperado</label>
+          <select name="cooperado_id" id="cooperado">
+            <option value="todos" {% if cooperado_id == 'todos' %}selected{% endif %}>Todos</option>
+            {% for c in cooperados %}
+            <option value="{{ c.id }}" {% if cooperado_id == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="data_inicio">De</label>
+          <input type="date" name="data_inicio" id="data_inicio" value="{{ data_inicio }}">
+        </div>
+
+        <div class="field">
+          <label for="data_fim">Até</label>
+          <input type="date" name="data_fim" id="data_fim" value="{{ data_fim }}">
+        </div>
+
+        <div class="field">
+          <label for="status_pagamento">Pagamento</label>
+          <select name="status_pagamento" id="status_pagamento">
+            <option value="todos" {% if status_pagamento == 'todos' %}selected{% endif %}>Todos</option>
+            <option value="pago" {% if status_pagamento == 'pago' %}selected{% endif %}>Pago</option>
+            <option value="pendente" {% if status_pagamento == 'pendente' %}selected{% endif %}>Pendente</option>
+          </select>
+        </div>
+
+        <div class="field w6">
+          <label for="cliente">Cliente</label>
+          <input type="text" name="cliente" id="cliente" value="{{ cliente or '' }}" placeholder="Nome do cliente">
+        </div>
+
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn2 primary" type="submit">Aplicar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+/* =========================
+   DADOS (Jinja -> JS)
+   ========================= */
+const chartEntregasLabels = {{ (chart_entregas_labels or [])|tojson }};
+const chartEntregasValues = {{ (chart_entregas_values or [])|tojson }};
+
+const chartAnoLabelsRaw  = {{ (chart_ano_labels  or [])|tojson }};
+const chartAnoTotaisRaw  = {{ (chart_ano_totais  or [])|tojson }};
+const chartAnoQtdRaw     = {{ (chart_ano_qtd     or [])|tojson }};
+const chartAnoTicketRaw  = {{ (chart_ano_ticket  or [])|tojson }};
+
+const horasPicoTop3      = {{ (horas_pico_top3 or [])|tojson }};
+const rankingCooperadosRaw = {{ (ranking_cooperados or [])|tojson }};
+
+const estat = {
+  total: {{ estatisticas.total or 0 }},
+  pagas: {{ estatisticas.pagas or 0 }},
+  pend:  {{ estatisticas.pendentes or 0 }},
+  total_valor: {{ estatisticas.total_valor or 0 }},
+  ticket_medio: {{ estatisticas.ticket_medio or 0 }},
+};
+
+/* =========================
+   UTILS
+   ========================= */
+function fmtBR(v, dec=2){
+  const n = Number(v || 0);
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtInt(v){
+  const n = Number(v || 0);
+  return n.toLocaleString('pt-BR');
+}
+function norm(t){
+  return (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function toast(title, subtitle=''){
+  const wrap = document.getElementById('toast');
+  if(!wrap) return;
+  const t = document.createElement('div');
+  t.className = 't';
+  t.innerHTML = `${title}${subtitle?`<small>${subtitle}</small>`:''}`;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(6px)'; }, 2600);
+  setTimeout(()=>{ t.remove(); }, 3200);
+}
+function parseRange(txt){
+  const s = (txt||'').toString().replace(/\s/g,'').replace(',', '.');
+  if(!s) return [null,null];
+  const parts = s.split('-').filter(Boolean);
+  if(parts.length===1){
+    const n = Number(parts[0]);
+    return Number.isFinite(n) ? [n,null] : [null,null];
+  }
+  const a = Number(parts[0]); const b = Number(parts[1]);
+  return [Number.isFinite(a)?a:null, Number.isFinite(b)?b:null];
+}
+
+/* Export PNG (com fundo branco) */
+function exportCanvasPNG(canvasId, filename){
+  const c = document.getElementById(canvasId);
+  if(!c) return toast('Canvas não encontrado', canvasId);
+
+  // cria canvas temporário com fundo branco
+  const tmp = document.createElement('canvas');
+  tmp.width = c.width; tmp.height = c.height;
+  const tctx = tmp.getContext('2d');
+  tctx.fillStyle = '#ffffff';
+  tctx.fillRect(0,0,tmp.width,tmp.height);
+  tctx.drawImage(c, 0, 0);
+
+  const a = document.createElement('a');
+  a.download = filename || `${canvasId}.png`;
+  a.href = tmp.toDataURL('image/png');
+  a.click();
+  toast('PNG gerado', a.download);
+}
+
+/* =========================
+   TABS / SEÇÕES
+   ========================= */
+function activateSection(id){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+
+  document.querySelector(`.tab[data-sec="${id}"]`)?.classList.add('active');
+  document.getElementById(id)?.classList.add('active');
+
+  localStorage.setItem('coopex_sec', id);
+
+  // IMPORTANTE: quando muda de aba, força resize/update nos gráficos (resolve canvas “apertado/zerado”)
+  requestAnimationFrame(()=>{
+    [chartDia, chartStatus, chartCoop, chartAno].forEach(ch=>{
+      if(ch){ ch.resize(); ch.update('none'); }
+    });
+  });
+}
+document.querySelectorAll('.tab[data-sec]').forEach(btn=>{
+  btn.addEventListener('click', ()=> activateSection(btn.getAttribute('data-sec')));
+});
+(function restoreSection(){
+  const id = localStorage.getItem('coopex_sec');
+  if(id && document.getElementById(id)) activateSection(id);
+})();
+
+/* =========================
+   MODAL FILTROS
+   ========================= */
+const modal = document.getElementById('modal');
+const modalBg = document.getElementById('modalBg');
+document.getElementById('btnOpenFilters')?.addEventListener('click', ()=> modal.classList.add('show'));
+document.getElementById('btnCloseModal')?.addEventListener('click', ()=> modal.classList.remove('show'));
+modalBg?.addEventListener('click', ()=> modal.classList.remove('show'));
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') modal.classList.remove('show'); });
+
+/* =========================
+   KPIs DERIVADAS
+   ========================= */
+(function(){
+  const pct = estat.total ? (estat.pagas/estat.total)*100 : 0;
+  document.getElementById('kpiPctPagas').textContent =
+    (pct||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%';
+})();
+
+/* =========================
+   PICO (Top 1 + chips)
+   ========================= */
+(function(){
+  const kpiPico = document.getElementById('kpiPico');
+  const chipsPico = document.getElementById('chipsPico');
+  const chipsPico2 = document.getElementById('chipsPico2');
+
+  const addChips = (host)=>{
+    if(!host) return;
+    host.innerHTML='';
+    if(Array.isArray(horasPicoTop3) && horasPicoTop3.length){
+      horasPicoTop3.slice(0,3).forEach((h,i)=>{
+        const span = document.createElement('span');
+        span.className = 'chip ok';
+        span.textContent = `${i+1}º ${h}`;
+        host.appendChild(span);
+      });
+    }else{
+      const span = document.createElement('span');
+      span.className = 'chip';
+      span.textContent = 'Sem pico';
+      host.appendChild(span);
+    }
+  };
+
+  if(kpiPico){
+    kpiPico.textContent = (Array.isArray(horasPicoTop3) && horasPicoTop3.length) ? horasPicoTop3[0] : '—';
+  }
+  addChips(chipsPico);
+  addChips(chipsPico2);
+})();
+
+/* =========================
+   INSTANTÂNEO (filtros rápidos)
+   ========================= */
+let instant = {
+  ticketMin: null, ticketMax: null,
+  valorMin: null,  valorMax: null,
+  qText: '',
+  topN: 20,
+  hideZeros: false,
+  dense: false
+};
+
+function computeTicket(item){
+  const qtd = Number(item.qtd || 0);
+  const tot = Number(item.total_valor || 0);
+  return qtd ? (tot / qtd) : 0;
+}
+function applyInstantFilter(arr){
+  return (arr||[]).map(x=>({
+    ...x,
+    ticket: computeTicket(x),
+  })).filter(x=>{
+    if(instant.qText && !norm(x.nome).includes(norm(instant.qText))) return false;
+    if(instant.hideZeros && Number(x.qtd||0) === 0) return false;
+
+    if(instant.ticketMin != null && x.ticket < instant.ticketMin) return false;
+    if(instant.ticketMax != null && x.ticket > instant.ticketMax) return false;
+    if(instant.valorMin  != null && Number(x.total_valor||0) < instant.valorMin) return false;
+    if(instant.valorMax  != null && Number(x.total_valor||0) > instant.valorMax) return false;
+    return true;
+  });
+}
+
+/* Quickbar bindings */
+document.getElementById('qTopN')?.addEventListener('change', (e)=>{
+  instant.topN = Number(e.target.value || 20);
+  recomputeAll();
+});
+document.getElementById('qTicket')?.addEventListener('input', (e)=>{
+  const [a,b]=parseRange(e.target.value);
+  instant.ticketMin=a; instant.ticketMax=b;
+  recomputeAll();
+});
+document.getElementById('qValor')?.addEventListener('input', (e)=>{
+  const [a,b]=parseRange(e.target.value);
+  instant.valorMin=a; instant.valorMax=b;
+  recomputeAll();
+});
+document.getElementById('tglZeros')?.addEventListener('click', ()=>{
+  instant.hideZeros = !instant.hideZeros;
+  document.getElementById('tglZeros')?.classList.toggle('on', instant.hideZeros);
+  recomputeAll();
+});
+document.getElementById('tglDense')?.addEventListener('click', ()=>{
+  instant.dense = !instant.dense;
+  document.getElementById('tglDense')?.classList.toggle('on', instant.dense);
+  const tbl = document.getElementById('tblCooperados');
+  if(tbl){
+    tbl.querySelectorAll('th,td').forEach(x=> x.style.padding = instant.dense ? '8px 8px' : '11px 10px');
+  }
+});
+document.getElementById('btnClearQuick')?.addEventListener('click', ()=>{
+  instant.ticketMin = instant.ticketMax = instant.valorMin = instant.valorMax = null;
+  instant.hideZeros = false;
+  document.getElementById('tglZeros')?.classList.remove('on');
+  const qT = document.getElementById('qTicket'); if(qT) qT.value='';
+  const qV = document.getElementById('qValor'); if(qV) qV.value='';
+  recomputeAll();
+  toast('Instantâneo limpo');
+});
+document.getElementById('qGlobal')?.addEventListener('input', (e)=>{
+  instant.qText = (e.target.value || '').trim();
+  recomputeAll();
+});
+
+/* =========================
+   TABELA + RANK
+   ========================= */
+let currentRows = [];
+let sortState = { key:'total_valor', asc:false };
+
+function sortRows(rows){
+  const {key, asc} = sortState;
+  const get = (x)=>{
+    if(key==='nome') return x.nome || '';
+    if(key==='qtd') return Number(x.qtd||0);
+    if(key==='total_valor') return Number(x.total_valor||0);
+    if(key==='ticket') return Number(x.ticket||0);
+    if(key==='percent') return Number(x.percent||0);
+    return 0;
+  };
+  return rows.slice().sort((a,b)=>{
+    const va=get(a), vb=get(b);
+    if(typeof va==='number' && typeof vb==='number') return asc ? va-vb : vb-va;
+    return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+}
+function renderTable(rows){
+  const tbody = document.getElementById('tbodyCoops');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  if(!rows.length){
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td colspan="5" style="padding:14px;font-weight:900;color:#6b7280">Sem dados</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:950;color:#0b2c6f;max-width:420px;overflow:hidden;text-overflow:ellipsis">${r.nome ?? ''}</td>
+      <td class="t-center">${fmtInt(r.qtd||0)}</td>
+      <td class="t-right">R$ ${fmtBR(r.total_valor||0)}</td>
+      <td class="t-right">R$ ${fmtBR(r.ticket||0)}</td>
+      <td class="t-right">${(Number(r.percent||0)).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+    `;
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+}
+function renderRank(rows){
+  const ul = document.getElementById('rankCoops');
+  if(!ul) return;
+  ul.innerHTML='';
+  const top = rows.slice(0, Math.min(10, rows.length));
+  if(!top.length){
+    const li=document.createElement('li');
+    li.innerHTML = `<span class="rLabel">Sem dados</span>`;
+    ul.appendChild(li);
+    return;
+  }
+  top.forEach((r,i)=>{
+    const li=document.createElement('li');
+    const medal = i===0?'m1':(i===1?'m2':(i===2?'m3':'mX'));
+    li.innerHTML = `
+      <span class="medal ${medal}">${i+1}</span>
+      <span class="rLabel">${r.nome ?? ''}</span>
+      <span class="rVal">R$ ${fmtBR(r.total_valor||0)} • ${fmtInt(r.qtd||0)} • ${fmtBR(r.ticket||0)}</span>
+    `;
+    ul.appendChild(li);
+  });
+}
+document.querySelectorAll('#tblCooperados thead th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.getAttribute('data-k');
+    if(sortState.key === key) sortState.asc = !sortState.asc;
+    else { sortState.key = key; sortState.asc = (key==='nome'); }
+    recomputeAll();
+  });
+});
+
+/* CSV */
+function exportCSV(){
+  if(!currentRows.length) return toast('Sem dados para exportar');
+  const header = ['Cooperado','Qtd','R$ total','R$ ticket','% total'];
+  const lines = [header.join(';')];
+  currentRows.forEach(r=>{
+    const cols = [
+      `"${(r.nome||'').replace(/"/g,'""')}"`,
+      `"${fmtInt(r.qtd||0)}"`,
+      `"${fmtBR(r.total_valor||0)}"`,
+      `"${fmtBR(r.ticket||0)}"`,
+      `"${(Number(r.percent||0)).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%"`
+    ];
+    lines.push(cols.join(';'));
+  });
+  const blob = new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='cooperados.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('CSV gerado');
+}
+document.getElementById('btnCSV')?.addEventListener('click', exportCSV);
+document.getElementById('btnCSV2')?.addEventListener('click', exportCSV);
+
+/* Copiar tabela */
+async function copyTable(){
+  if(!currentRows.length) return toast('Sem dados para copiar');
+  const header = ['Cooperado','Qtd','R$ total','R$ ticket','% total'];
+  const lines = [header.join('\t')];
+  currentRows.forEach(r=>{
+    lines.push([
+      r.nome||'',
+      (r.qtd||0),
+      fmtBR(r.total_valor||0),
+      fmtBR(r.ticket||0),
+      (Number(r.percent||0)).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'
+    ].join('\t'));
+  });
+  try{
+    await navigator.clipboard.writeText(lines.join('\n'));
+    toast('Tabela copiada');
+  }catch{
+    toast('Falha ao copiar', 'Permita acesso à área de transferência');
+  }
+}
+document.getElementById('btnCopy')?.addEventListener('click', copyTable);
+
+/* =========================
+   KPIs EXTRAS + ALERTAS
+   ========================= */
+function renderExtraKPIs(rows){
+  document.getElementById('kpiCoops').textContent = fmtInt(rows.length);
+
+  // maior/menor ticket
+  if(!rows.length){
+    document.getElementById('kpiMaxTicket').textContent='—';
+    document.getElementById('kpiMaxTicketNome').textContent='—';
+    document.getElementById('kpiMinTicket').textContent='—';
+    document.getElementById('kpiMinTicketNome').textContent='—';
+    document.getElementById('kpiTop3').textContent='—';
+    return;
+  }
+  const byTicketAsc = rows.slice().sort((a,b)=> (a.ticket||0) - (b.ticket||0));
+  const minT = byTicketAsc[0];
+  const maxT = byTicketAsc[byTicketAsc.length-1];
+  document.getElementById('kpiMinTicket').textContent = fmtBR(minT.ticket||0);
+  document.getElementById('kpiMinTicketNome').textContent = minT.nome || '—';
+  document.getElementById('kpiMaxTicket').textContent = fmtBR(maxT.ticket||0);
+  document.getElementById('kpiMaxTicketNome').textContent = maxT.nome || '—';
+
+  // concentração top3
+  const total = rows.reduce((a,b)=>a+(Number(b.total_valor||0)),0);
+  const top3 = rows.slice().sort((a,b)=>Number(b.total_valor||0)-Number(a.total_valor||0)).slice(0,3);
+  const top3sum = top3.reduce((a,b)=>a+(Number(b.total_valor||0)),0);
+  const pct = total ? (top3sum/total)*100 : 0;
+  document.getElementById('kpiTop3').textContent =
+    pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%';
+}
+
+function renderAlertas(rows){
+  const chips = document.getElementById('chipsAlertas');
+  const sub = document.getElementById('subAlertas');
+  const kpiAlertasCount = document.getElementById('kpiAlertasCount');
+  if(!chips) return;
+  chips.innerHTML='';
+
+  const out = [];
+  const pctPend = estat.total ? (estat.pend/estat.total)*100 : 0;
+
+  if(estat.total === 0) out.push({cls:'danger', t:'Sem entregas no período'});
+  if(pctPend >= 25) out.push({cls:'warn', t:`Pendentes ${pctPend.toFixed(1)}%`});
+
+  if(rows.length){
+    const total = rows.reduce((a,b)=>a+(Number(b.total_valor||0)),0);
+    const top3 = rows.slice().sort((a,b)=>Number(b.total_valor||0)-Number(a.total_valor||0)).slice(0,3);
+    const top3sum = top3.reduce((a,b)=>a+(Number(b.total_valor||0)),0);
+    const pctTop3 = total ? (top3sum/total)*100 : 0;
+    if(pctTop3 >= 65) out.push({cls:'danger', t:`Concentração TOP 3 ${pctTop3.toFixed(1)}%`});
+  }
+
+  if(Array.isArray(horasPicoTop3) && horasPicoTop3.length){
+    out.push({cls:'ok', t:`Pico: ${horasPicoTop3[0]}`});
+  }
+
+  if(!out.length) out.push({cls:'ok', t:'Sem alertas'});
+
+  out.forEach(x=>{
+    const s=document.createElement('span');
+    s.className = `chip ${x.cls}`;
+    s.textContent = x.t;
+    chips.appendChild(s);
+  });
+
+  if(sub) sub.textContent = `${out.length} sinal(is)`;
+  if(kpiAlertasCount) kpiAlertasCount.textContent = fmtInt(out.length);
+}
+
+/* =========================
+   GRÁFICOS (Chart.js)
+   ========================= */
+let chartDia = null, chartStatus = null, chartCoop = null, chartAno = null;
+
+function makeGradient(ctx, c1, c2){
+  const g=ctx.createLinearGradient(0,0,0,260);
+  g.addColorStop(0,c1); g.addColorStop(1,c2);
+  return g;
+}
+
+function buildCharts(rows){
+  // Dia
+  const elDia = document.getElementById('chartDia');
+  if(elDia && chartEntregasLabels.length){
+    const ctx = elDia.getContext('2d');
+    if(chartDia) chartDia.destroy();
+    chartDia = new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:chartEntregasLabels,
+        datasets:[{
+          data:chartEntregasValues,
+          fill:true,
+          backgroundColor: makeGradient(ctx, 'rgba(79,140,255,0.22)','rgba(79,140,255,0.02)'),
+          borderColor:'#003399',
+          borderWidth:2.2,
+          pointRadius:3,
+          tension:.35
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{beginAtZero:true,grid:{color:'#eef2ff'}},
+          x:{grid:{display:false}}
+        }
+      }
+    });
+  }
+
+  // Status
+  const elS = document.getElementById('chartStatus');
+  if(elS){
+    const ctx = elS.getContext('2d');
+    if(chartStatus) chartStatus.destroy();
+    chartStatus = new Chart(ctx,{
+      type:'doughnut',
+      data:{
+        labels:['Pagas','Pendentes'],
+        datasets:[{
+          data:[estat.pagas||0, estat.pend||0],
+          backgroundColor:['#003399','#f59e0b'],
+          borderColor:'#ffffff',
+          borderWidth:2
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom'}},
+        cutout:'62%'
+      }
+    });
+  }
+
+  // Coop
+  const elC = document.getElementById('chartCoop');
+  if(elC){
+    const ctx = elC.getContext('2d');
+    if(chartCoop) chartCoop.destroy();
+    const labels = rows.map(r=>r.nome);
+    const vals = rows.map(r=>Number(r.total_valor||0));
+    chartCoop = new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[{
+          data:vals,
+          backgroundColor: makeGradient(ctx,'rgba(0,51,153,0.22)','rgba(0,51,153,0.04)'),
+          borderColor:'#003399',
+          borderWidth:1.6,
+          borderRadius:10
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{beginAtZero:true,grid:{color:'#eef2ff'}},
+          x:{grid:{display:false}}
+        }
+      }
+    });
+  }
+}
+
+/* Crescimento anual */
+function computeYoY(arr){
+  return arr.map((v,i)=> i ? (arr[i-1] ? ((v-arr[i-1])/arr[i-1])*100 : null) : null);
+}
+
+function buildChartAno(){
+  const el = document.getElementById('chartAno');
+  if(!el || !chartAnoLabelsRaw.length || !chartAnoTotaisRaw.length) return;
+
+  const anosNum = chartAnoLabelsRaw.map(y=>parseInt(y,10));
+  const mask = anosNum.map(y=>y>=2025);
+  const anos = chartAnoLabelsRaw.filter((_,i)=>mask[i]);
+  const totR$ = chartAnoTotaisRaw.filter((_,i)=>mask[i]);
+  const qtd   = (chartAnoQtdRaw||[]).length ? chartAnoQtdRaw.filter((_,i)=>mask[i]) : Array(anos.length).fill(null);
+  const tkt   = (chartAnoTicketRaw||[]).length ? chartAnoTicketRaw.filter((_,i)=>mask[i]) : Array(anos.length).fill(null);
+
+  if(!anos.length) return;
+
+  const sel = document.getElementById('selMetrica');
+  let metric = sel?.value || 'faturamento';
+  const seriesByMetric = ()=> (metric==='faturamento'? totR$ : (metric==='entregas'? qtd : tkt));
+
+  const ctx = el.getContext('2d');
+  if(chartAno) chartAno.destroy();
+
+  chartAno = new Chart(ctx,{
+    data:{
+      labels:anos,
+      datasets:[
+        {
+          type:'bar',
+          label:'Valor',
+          data:seriesByMetric(),
+          backgroundColor: makeGradient(ctx,'rgba(79,140,255,0.22)','rgba(79,140,255,0.05)'),
+          borderColor:'#003399',
+          borderWidth:1.6,
+          borderRadius:12,
+          yAxisID:'y'
+        },
+        {
+          type:'line',
+          label:'YoY (%)',
+          data:computeYoY(seriesByMetric()),
+          borderColor:'#003399',
+          backgroundColor:'rgba(0,51,153,0.10)',
+          borderWidth:2.2,
+          pointRadius:3,
+          tension:.35,
+          spanGaps:true,
+          yAxisID:'y1'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:true}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:'#eef2ff'},title:{display:true,text:'Valor'}},
+        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'% YoY'}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+
+  function fmtMetric(v){
+    if(v==null) return '—';
+    if(metric==='entregas') return fmtInt(v);
+    return fmtBR(v);
+  }
+
+  function refreshAnoKPIs(){
+    const s = seriesByMetric();
+    const n = s.length;
+    const lastYear = anos[n-1];
+    const lastVal = s[n-1];
+    const prevVal = n>1 ? s[n-2] : null;
+
+    document.getElementById('kpiUltAno').textContent = lastYear ?? '—';
+    document.getElementById('kpiUltVal').textContent = fmtMetric(lastVal);
+
+    const valid = s.filter(v=>v!=null).map(v=>Number(v||0));
+    const total = valid.reduce((a,b)=>a+b,0);
+    const media = valid.length ? total/valid.length : 0;
+
+    let yoyTxt='—';
+    if(prevVal && prevVal!==0){
+      const p=((lastVal-prevVal)/prevVal)*100;
+      yoyTxt=(p>=0?'+':'') + p.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%';
+    }
+    document.getElementById('kpiYoY').textContent = yoyTxt;
+
+    const yoySeries = computeYoY(s).filter(v=>v!=null);
+    const yoyAvg = yoySeries.length ? (yoySeries.reduce((a,b)=>a+b,0)/yoySeries.length) : null;
+    document.getElementById('kpiYoYAvg').textContent =
+      (yoyAvg==null) ? '—' : (yoyAvg>=0?'+':'') + yoyAvg.toLocaleString('pt-BR',{maximumFractionDigits:1}) + '%';
+
+    const lblUltVal = document.getElementById('lblUltVal');
+    const lblMedia = document.getElementById('lblMedia');
+    const lblTotPeriodo = document.getElementById('lblTotPeriodo');
+
+    if(metric==='entregas'){
+      lblUltVal.textContent='Entregas';
+      lblMedia.textContent='Média (qtd)';
+      lblTotPeriodo.textContent='Total (qtd)';
+      document.getElementById('kpiMedia').textContent = fmtInt(media);
+      document.getElementById('kpiTotPeriodo').textContent = fmtInt(total);
+    }else{
+      lblUltVal.textContent = (metric==='ticket'?'Ticket':'Faturamento');
+      lblMedia.textContent = 'Média';
+      lblTotPeriodo.textContent = 'Total';
+      document.getElementById('kpiMedia').textContent = fmtBR(media);
+      document.getElementById('kpiTotPeriodo').textContent = fmtBR(total);
+    }
+  }
+  refreshAnoKPIs();
+
+  sel?.addEventListener('change', ()=>{
+    metric = sel.value;
+    chartAno.data.datasets[0].data = seriesByMetric();
+    chartAno.data.datasets[1].data = computeYoY(seriesByMetric());
+    chartAno.options.scales.y.title.text = (metric==='entregas' ? 'Entregas' : 'Valor');
+    chartAno.update();
+    refreshAnoKPIs();
+  });
+}
+
+/* =========================
+   BOTÕES PNG
+   ========================= */
+document.querySelectorAll('[data-save]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const id = btn.getAttribute('data-save');
+    if(!id) return;
+    exportCanvasPNG(id, `${id}.png`);
+  });
+});
+
+/* =========================
+   BADGES / CHIPS
+   ========================= */
+function renderInstantBadge(){
+  const badge = document.getElementById('badgeInstant');
+  const subResumo = document.getElementById('subResumo');
+  const subTop = document.getElementById('subTopCoops');
+
+  const on = !!instant.qText || instant.hideZeros ||
+    instant.ticketMin!=null || instant.ticketMax!=null ||
+    instant.valorMin!=null || instant.valorMax!=null ||
+    (instant.topN && instant.topN < 99999);
+
+  if(badge) badge.textContent = on ? 'Instantâneo ON' : 'Instantâneo OFF';
+  if(subResumo) subResumo.textContent = on ? 'Servidor + instantâneo' : 'Servidor';
+  if(subTop) subTop.textContent = on ? 'Filtrado' : 'Servidor';
+}
+
+/* =========================
+   RECOMPUTE
+   ========================= */
+function recomputeAll(){
+  let filtered = applyInstantFilter(rankingCooperadosRaw);
+
+  const sortedBase = filtered.slice().sort((a,b)=>Number(b.total_valor||0)-Number(a.total_valor||0));
+  if(instant.topN && instant.topN < 99999) filtered = sortedBase.slice(0, instant.topN);
+
+  const sorted = sortRows(filtered);
+  currentRows = sorted;
+
+  renderTable(sorted);
+  renderRank(sorted);
+  renderExtraKPIs(sorted);
+  buildCharts(sorted);
+  renderAlertas(sorted);
+  renderInstantBadge();
+
+  // “fix” de resize quando estiver na aba de gráficos/crescimento
+  requestAnimationFrame(()=>{
+    [chartDia, chartStatus, chartCoop, chartAno].forEach(ch=>{
+      if(ch){ ch.resize(); ch.update('none'); }
+    });
+  });
+}
+
+/* imprime */
+document.getElementById('btnPrint')?.addEventListener('click', ()=>window.print());
+
+/* init */
+recomputeAll();
+buildChartAno();
+
+/* =========================
+   Clique para exportar no Export (CSV)
+   ========================= */
+document.getElementById('btnCSV2')?.addEventListener('click', exportCSV);
+</script>
+
+</body>
+</html>

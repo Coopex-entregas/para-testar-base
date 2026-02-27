@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <title>Editar Entrega - Coopex</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #0366d6, #0053a5 75%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #003399;
+        }
+        .centerbox {
+            min-height: 90vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .box {
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 5px 22px #00339930;
+            padding: 2.3rem 2.5rem 1.4rem 2.5rem;
+            max-width: 390px;
+            width: 100%;
+        }
+        h2 {
+            color: #0366d6;
+            text-align: center;
+            margin-bottom: 1.2rem;
+        }
+        .voltar {
+            display: block;
+            margin-bottom: 1.1rem;
+            color: #0053a5;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.03em;
+        }
+        label {
+            display: block;
+            margin-top: 1.05rem;
+            margin-bottom: 0.3rem;
+            color: #0366d6;
+            font-weight: bold;
+            font-size: 1.07em;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 1em 0.9em;
+            border: 1.5px solid #b7cfff;
+            border-radius: 8px;
+            font-size: 1.07em;
+            background: #e8f1ff;
+            outline: none;
+            margin-bottom: 0.5rem;
+            transition: border 0.17s;
+        }
+        select:focus, input[type="text"]:focus {
+            border: 2px solid #003399;
+            background: #f4f8ff;
+        }
+        button[type="submit"] {
+            width: 100%;
+            padding: 1.07em;
+            background: #0366d6;
+            color: #fff;
+            font-size: 1.18em;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-top: 1.1rem;
+            cursor: pointer;
+            transition: background 0.16s, box-shadow 0.15s;
+            box-shadow: 0 3px 10px #00339918;
+        }
+        button[type="submit"]:hover {
+            background: #003399;
+        }
+        .messages {
+            color: #c9002d;
+            background: #f5e7ef;
+            margin: 0.6rem 0 0.6rem 0;
+            padding: 7px 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.04em;
+        }
+        @media (max-width: 470px) {
+            .box { padding: 1.2rem 3vw 1.2rem 3vw; }
+        }
+    </style>
+</head>
+<body>
+    <div class="centerbox">
+        <div class="box">
+            <h2>Editar Entrega</h2>
+            <a class="voltar" href="{{ url_for('painel_cooperado') }}">&larr; Voltar</a>
+
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="messages">
+                    <ul style="list-style:none;padding-left:0;margin:0;">
+                    {% for msg in messages %}
+                        <li>{{ msg }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('editar_entrega', id=entrega.id) }}">
+                <label for="status_pagamento">Status Pagamento:</label>
+                <select name="status_pagamento" id="status_pagamento" required>
+                    <option value="pendente" {% if entrega.status_pagamento == "pendente" %}selected{% endif %}>Pendente</option>
+                    <option value="pago" {% if entrega.status_pagamento == "pago" %}selected{% endif %}>Pago</option>
+                </select>
+
+                <label for="status">Status Entrega:</label>
+                <select name="status" id="status" required>
+                    <option value="pendente" {% if entrega.status == "pendente" %}selected{% endif %}>Pendente</option>
+                    <option value="recebido" {% if entrega.status == "recebido" %}selected{% endif %}>Entregue</option>
+                </select>
+
+                <label for="recebido_por">Recebido por:</label>
+                <input type="text" name="recebido_por" id="recebido_por" maxlength="50"
+                       value="{{ entrega.recebido_por or '' }}" placeholder="Nome de quem recebeu a entrega" />
+
+                <button type="submit">Salvar</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

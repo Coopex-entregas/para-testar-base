@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Painel do Cooperado</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* =========================================
+       TEMA PROFISSIONAL — ROYAL + BRANCO
+       Mantém o visual da TABELA/CHIPS
+       ========================================= */
+    :root{
+      --royal:#0033cc; --royal-2:#2750ff; --ink:#0b1b3a; --muted:#6f7fb0;
+      --bg:#eef2ff; --card:#ffffff; --line:#e0e7ff;
+      --good:#12b886; --bad:#e03131; --blue:#2750ff;
+      --r:14px; --shadow:0 8px 24px rgba(0,51,204,.10); --shadow-sm:0 6px 16px rgba(0,51,204,.08);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--ink);
+      background:
+        radial-gradient(1100px 520px at 10% -10%, rgba(39,80,255,.12), transparent 60%),
+        radial-gradient(1100px 520px at 110% -10%, rgba(0,51,204,.10), transparent 60%),
+        var(--bg);
+    }
+
+    /* ===== TOPBAR ENXUTO ===== */
+    header{
+      position:sticky;top:0;z-index:40;
+      background:linear-gradient(90deg,var(--royal),var(--royal-2));
+      color:#fff;padding:.65rem 3.5vw;
+      display:flex;align-items:center;justify-content:space-between;
+      font-weight:800;letter-spacing:.3px;
+      box-shadow:0 6px 18px rgba(0,40,130,.18)
+    }
+    header .sub{font-weight:600;font-size:.9rem;opacity:.95}
+    header .right{display:flex;align-items:center;gap:10px}
+
+    .wrap{max-width:1100px;margin:12px auto 18px;padding:0 3.5vw}
+
+    /* ===== STATUS GPS ===== */
+    .gps-status{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:700;
+      background:rgba(255,255,255,.16);
+      border:1px solid rgba(255,255,255,.4);
+      cursor:pointer;
+      white-space:nowrap;
+      transition:background .2s ease, border-color .2s ease, transform .1s ease;
+    }
+    .gps-status:hover{
+      transform:translateY(-1px);
+    }
+    .gps-status::before{
+      content:"";
+      width:9px;height:9px;border-radius:999px;
+      background:#ffd43b;
+      box-shadow:0 0 0 0 rgba(255,212,59,.0);
+      transition:background .2s ease, box-shadow .2s ease;
+    }
+    .gps-status.gps-status--on::before{
+      background:#69db7c;
+      box-shadow:0 0 0 6px rgba(105,219,124,.35);
+    }
+    .gps-status.gps-status--off::before{
+      background:#ffd43b;
+      box-shadow:none;
+    }
+    .gps-status.gps-status--error::before{
+      background:#ff6b6b;
+      box-shadow:0 0 0 6px rgba(255,107,107,.3);
+    }
+
+    /* ===== ABAS ===== */
+    .tabs{
+      display:flex;
+      gap:6px;
+      margin:6px 0 10px;
+      border-bottom:1px solid var(--line);
+    }
+    .tab-btn{
+      flex:1;
+      padding:8px 10px;
+      border:none;
+      background:transparent;
+      font-weight:700;
+      font-size:.9rem;
+      color:var(--muted);
+      border-radius:10px 10px 0 0;
+      cursor:pointer;
+    }
+    .tab-btn.active{
+      background:var(--card);
+      color:var(--royal);
+      box-shadow:0 -2px 10px rgba(0,51,204,.12);
+    }
+    .tab-panel{
+      display:none;
+      margin-top:6px;
+    }
+    .tab-panel.active{
+      display:block;
+    }
+
+    /* ===== CARDS: 2 em cima (Pago, Pendente) e Total embaixo pegando toda a largura ===== */
+    .stats{display:grid;grid-template-columns:repeat(2, minmax(250px,1fr));gap:10px;margin:10px 0 14px}
+    .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:space-between;min-height:64px}
+    .stat h4{margin:0;font-size:.85rem;font-weight:800;color:var(--muted)}
+    .stat strong{margin:0;font-size:1.18rem;line-height:1}
+
+    .stat--pago{border-color:#d6e2ff;background:linear-gradient(180deg,#f4f7ff,#eef2ff)}
+    .stat--pago h4{color:var(--blue)}
+    .stat--pago strong{color:#0f2a80}
+
+    .stat--pendente{background:#fff2f2;border-color:#ffd6d6}
+    .stat--pendente h4,.stat--pendente strong{color:var(--bad)}
+
+    .stat--total{background:#e9fbf5;border-color:#b3f0dc;grid-column:1/-1}
+    .stat--total h4,.stat--total strong{color:var(--good)}
+
+    /* ===== FILTROS ===== */
+    .filters{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:var(--shadow-sm)}
+    .filters form{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .filters input[type=date], .filters select, .filters button{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.94rem;background:#fff}
+    .filters .btn{background:var(--royal);color:#fff;border:none;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(0,51,204,.22)}
+    .scope{margin:6px 0 0;text-align:center;color:#0f2a80;font-weight:800;font-size:.9rem}
+
+    /* ===== TABELA (mantida) ===== */
+    .card-table{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    thead th{background:#0f2a80;color:#fff;text-align:center;padding:10px 6px;font-size:.88rem}
+    tbody td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line);font-size:.95rem}
+
+    .chip{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:800;font-size:.82rem;cursor:pointer;user-select:none}
+    .chip.pgto-pago{background:#e9fbf5;color:var(--good);border:1px solid #b3f0dc}
+    .chip.pgto-pendente{background:#fff2f2;color:var(--bad);border:1px solid #ffd6d6}
+    .chip.entregue{background:#e9fbf5;color:var(--good);border:1px solid #b3f0dc}
+
+    .row-details{display:none;background:#f8faff}
+    .row-open + .row-details{display:table-row}
+
+    .cliente-btn{all:unset;color:var(--royal);font-weight:800;cursor:pointer}
+
+    /* ===== BOTÕES CHAMADAS ===== */
+    .btn-aceitar, .btn-recusar{
+      border:none;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.8rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .btn-aceitar{
+      background:var(--good);
+      color:#fff;
+    }
+    .btn-recusar{
+      background:#fff2f2;
+      color:var(--bad);
+      border:1px solid #ffb3b3;
+    }
+
+    /* ===== SEÇÃO AJUDA ===== */
+    #tab-ajuda h2{
+      margin:4px 0 8px;
+      font-size:1.1rem;
+      color:#0f2a80;
+    }
+    #tab-ajuda p{
+      margin:0 0 10px;
+      font-size:.92rem;
+    }
+    #tab-ajuda label{
+      display:block;
+      margin-bottom:6px;
+      font-size:.92rem;
+    }
+    #tab-ajuda .btn{
+      background:var(--royal);
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      padding:8px 14px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 4px 12px rgba(0,51,204,.22);
+    }
+    .hint{font-size:.85rem;color:var(--muted);}
+
+    /* ===== MODAL “Recebido por” (amplo e confortável) ===== */
+    .overlay{position:fixed;inset:0;background:rgba(8,16,48,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:clamp(10px,2vw,24px)}
+    .overlay.open{display:flex}
+    .modal{width:min(1100px, 98vw);max-height:92vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);padding:18px 16px;display:grid;gap:14px}
+    .modal h3{margin:0;font-size:1.08rem;color:#0f2a80}
+    .modal .row{display:flex;gap:10px;align-items:center}
+    .modal input[type=text]{flex:1;min-width:0;width:100%;border:1px solid var(--line);border-radius:12px;padding:16px 18px;font-size:1.06rem;letter-spacing:.2px}
+    .modal .actions{display:flex;gap:10px;justify-content:flex-end}
+    .btn-primary{background:var(--royal);color:#fff;border:none;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}
+    .btn-ghost{background:#fff;color:#0f2a80;border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}
+
+    /* ===== MOBILE ===== */
+    @media (max-width:760px){
+      header{padding:.55rem 3.5vw}
+      .wrap{margin:8px auto 14px}
+      .stats{grid-template-columns:1fr 1fr}
+      thead{display:none}
+      table,tbody,tr,td{display:block;width:100%}
+      .card-table{padding:6px;border-radius:12px;box-shadow:var(--shadow-sm)}
+      tbody tr{background:#fff;margin:8px 0;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,.04);border:1px solid var(--line)}
+      tbody td{display:grid;grid-template-columns:42% 58%;text-align:left;border:none;padding:9px 10px;font-size:.95rem}
+      tbody td::before{content:attr(data-label);font-weight:800;color:#0f2a80;padding-right:8px;font-size:.88rem}
+      .row-open + .row-details{display:block}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>Painel do Cooperado</div>
+    <div class="right">
+      <!-- Status do GPS / Rastreamento -->
+      <div class="gps-status gps-status--off" id="gps-status" title="Status do rastreamento">
+        Localização: OFF
+      </div>
+      <div class="sub">{{ session['user_nome'] }}</div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- ABAS -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-chamadas">Chamadas</button>
+      <button class="tab-btn" data-tab="tab-minhas">Minhas entregas</button>
+      <button class="tab-btn" data-tab="tab-ajuda">Ajuda</button>
+    </nav>
+
+    <!-- ABA 1: CHAMADAS (ACEITAR / RECUSAR) -->
+    <section id="tab-chamadas" class="tab-panel active" aria-label="Chamadas disponíveis">
+      <section class="card-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Bairro</th>
+              <th>Valor</th>
+              <th>Distância</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in chamadas %}
+            <tr data-id="{{ c.id }}">
+              <td data-label="Cliente">{{ c.cliente }}</td>
+              <td data-label="Bairro">{{ c.bairro or '-' }}</td>
+              <td data-label="Valor">R$ {{ '%.2f'|format(c.valor) }}</td>
+              <td data-label="Distância">{{ c.distancia or '-' }}</td>
+              <td data-label="Ações">
+                <button type="button" class="btn-aceitar" onclick="aceitarEntrega({{ c.id }})">Aceitar</button>
+                <button type="button" class="btn-recusar" onclick="recusarEntrega({{ c.id }})">Recusar</button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center">Nenhuma chamada disponível.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- ABA 2: MINHAS ENTREGAS -->
+    <section id="tab-minhas" class="tab-panel" aria-label="Minhas entregas">
+      <!-- CARDS -->
+      <section class="stats" aria-label="Estatísticas de valores">
+        <div class="stat stat--pago" aria-label="Valor pago"><h4>Pago</h4><strong id="tot-pago">R$ {{ '%.2f'|format(total_pago or 0) }}</strong></div>
+        <div class="stat stat--pendente" aria-label="Valor pendente"><h4>Pendente</h4><strong id="tot-pendente">R$ {{ '%.2f'|format(total_pendente or 0) }}</strong></div>
+        <div class="stat stat--total" aria-label="Total geral"><h4>Total</h4><strong id="tot-geral">R$ {{ '%.2f'|format(total_geral or 0) }}</strong></div>
+      </section>
+
+      <!-- FILTROS -->
+      <section class="filters" aria-label="Filtros">
+        <form id="form-filtros" method="get">
+          <input type="date" name="inicio" id="f-inicio" value="{{ request.args.get('inicio','') }}" />
+          <input type="date" name="fim" id="f-fim" value="{{ request.args.get('fim','') }}" />
+          <select name="status_pgto" id="status_pgto">
+            <option value="todas"    {{ 'selected' if (status_pgto or 'todas')=='todas' }}>Todas</option>
+            <option value="pago"     {{ 'selected' if (status_pgto or '')=='pago' }}>Pagas</option>
+            <option value="pendente" {{ 'selected' if (status_pgto or '')=='pendente' }}>Pendentes</option>
+          </select>
+          <input type="hidden" name="todas_datas" id="todas_datas" value="{{ request.args.get('todas_datas','') }}" />
+          <button class="btn" type="submit">Filtrar</button>
+        </form>
+        <div id="escopo" class="scope"></div>
+      </section>
+
+      <!-- TABELA DE ENTREGAS -->
+      <section class="card-table" aria-label="Minhas entregas">
+        <table id="tabela-entregas">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Forma Pgto</th>
+              <th>Valor</th>
+              <th>Data</th>
+              <th>Hora Pedido</th>
+              <th>Hora Entrega</th>
+              <th>Pagamento</th>
+              <th>Entrega</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in entregas %}
+            <tr id="row-{{ e.id }}">
+              <td data-label="Cliente">
+                <button class="cliente-btn" type="button" onclick="toggleRow({{ e.id }})">{{ e.cliente }}</button>
+              </td>
+              <td data-label="Forma Pgto">{{ e.pagamento or '-' }}</td>
+              <td data-label="Valor" data-valor="{{ '%.2f'|format(e.valor) }}">R$ {{ '%.2f'|format(e.valor) | replace('.', ',') }}</td>
+              <td data-label="Data">{{ to_brasilia(e.data_envio).strftime('%d/%m') if e.data_envio else '-' }}</td>
+              <td data-label="Hora Pedido">{{ to_brasilia(e.data_envio).strftime('%H:%M') if e.data_envio else '-' }}</td>
+              <td data-label="Hora Entrega">{{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}</td>
+              <td data-label="Pagamento">
+                <span
+                  class="chip {{ 'pgto-pago' if e.status_pagamento and e.status_pagamento|lower=='pago' else 'pgto-pendente' }}"
+                  data-id="{{ e.id }}"
+                  data-status="{{ (e.status_pagamento or 'pendente')|lower }}"
+                  onclick="togglePagamento(event,this)"
+                  role="button" aria-pressed="{{ 'true' if (e.status_pagamento or '').lower()=='pago' else 'false' }}"
+                >{{ (e.status_pagamento|capitalize) if e.status_pagamento else 'Pendente' }}</span>
+              </td>
+              <td data-label="Entrega">
+                {% set entregue = (e.status in ['recebido','entregue']) %}
+                <span
+                  class="chip {{ 'entregue' if entregue else 'pgto-pendente' }}"
+                  data-id="{{ e.id }}"
+                  data-entregue="{{ '1' if entregue else '0' }}"
+                  onclick="handleEntregaClick(this)"
+                >{{ 'Entregue' if entregue else 'Pendente' }}</span>
+              </td>
+            </tr>
+            <tr class="row-details" id="details-{{ e.id }}">
+              <td colspan="8" style="text-align:left;padding:10px 14px">
+                <div><strong>Cliente:</strong> {{ e.cliente }}</div>
+                <div><strong>Bairro:</strong> {{ e.bairro or '-' }}</div>
+                <div><strong>Forma de Pagamento:</strong> {{ e.pagamento or '-' }}</div>
+                <div><strong>Valor:</strong> R$ {{ '%.2f'|format(e.valor) | replace('.', ',') }}</div>
+                <div><strong>Data/Hora Pedido:</strong> {{ to_brasilia(e.data_envio).strftime('%d/%m %H:%M') if e.data_envio else '-' }}</div>
+                <div><strong>Hora Entrega:</strong> {{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}</div>
+                <div><strong>Recebido por:</strong> {{ e.recebido_por or '-' }}</div>
+              </td>
+            </tr>
+            {% else %}
+            <tr class="no-rows"><td colspan="8" style="text-align:center">Nenhuma entrega encontrada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- ABA 3: AJUDA / SOCORRO -->
+    <section id="tab-ajuda" class="tab-panel" aria-label="Ajuda / Socorro">
+      <h2>Ajuda / Socorro</h2>
+      <p>Use este painel somente em situações reais de emergência. A supervisão será avisada imediatamente.</p>
+
+      <form id="form-socorro" onsubmit="enviarSocorro(event)">
+        <div>
+          <label>
+            <input type="radio" name="tipo" value="acidente_com_pedido" required>
+            Me envolvi em um acidente e estou com o pedido do cliente
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="radio" name="tipo" value="acidente_sem_pedido">
+            Me envolvi em um acidente sem pedido de cliente
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="radio" name="tipo" value="pneu_furou">
+            Pneu furou
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="radio" name="tipo" value="outros">
+            Outros (descreva abaixo)
+          </label>
+        </div>
+
+        <div id="socorro-outros-box" style="margin-top:8px; display:none;">
+          <textarea id="socorro-outros-text" name="detalhes" rows="4"
+            placeholder="Descreva o que aconteceu para a supervisão"
+            style="width:100%;border-radius:10px;border:1px solid var(--line);padding:8px;"></textarea>
+        </div>
+
+        <button type="submit" class="btn" style="margin-top:10px;">
+          Enviar pedido de socorro
+        </button>
+      </form>
+
+      <p class="hint" style="margin-top:8px;">
+        Ao enviar, a supervisão será notificada e um alerta sonoro tocará automaticamente no painel do administrador.
+      </p>
+    </section>
+  </div>
+
+  <!-- MODAL GLOBAL Recebido por -->
+  <div class="overlay" id="rcb-overlay" role="dialog" aria-modal="true" aria-labelledby="rcb-title">
+    <div class="modal">
+      <h3 id="rcb-title">Confirmar recebimento</h3>
+      <div class="row">
+        <input type="text" id="rcb-input-global" placeholder="Recebido por (ex.: porteiro fulano de tal)" maxlength="100" inputmode="text" autocomplete="name" />
+      </div>
+      <div class="hint">Pressione <strong>Enter</strong> para confirmar ou <strong>Esc</strong> para cancelar.</div>
+      <div class="actions">
+        <button type="button" class="btn-ghost" id="rcb-cancel">Cancelar</button>
+        <button type="button" class="btn-primary" id="rcb-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOM de nova entrega atribuída ao cooperado -->
+  <audio id="som-nova-entrega" src="{{ url_for('static', filename='sons/nova_corrida.mp3') }}" preload="auto"></audio>
+
+  <script>
+    // =============================
+    // VARIÁVEIS GERAIS
+    // =============================
+    let lastScrollY = window.scrollY;
+    const preserveScroll = () =>
+      requestAnimationFrame(()=>window.scrollTo({top:lastScrollY, behavior:'instant'}));
+
+    // =============================
+    // EXPANSÃO DE LINHA
+    // =============================
+    function toggleRow(id){
+      const tr = document.getElementById('row-'+id);
+      const d  = document.getElementById('details-'+id);
+      if(!tr || !d) return;
+      const open = tr.classList.toggle('row-open');
+      const isMobile = window.matchMedia('(max-width:760px)').matches;
+      d.style.display = open ? (isMobile ? 'block' : 'table-row') : 'none';
+    }
+
+    // =============================
+    // TOTALIZAÇÃO
+    // =============================
+    function recalcTotals(){
+      const rows=document.querySelectorAll('tbody tr[id^="row-"]');
+      let total=0,pago=0;
+      rows.forEach(r=>{
+        const vtd=r.querySelector('[data-valor]');
+        if(!vtd) return;
+        const v=parseFloat(vtd.dataset.valor||'0')||0;
+        total+=v;
+        const chip=r.querySelector('td[data-label="Pagamento"] .chip');
+        if(chip && (chip.dataset.status||'').toLowerCase()==='pago'){
+          pago+=v;
+        }
+      });
+      const pendente=Math.max(0,total-pago);
+      const fmt=(n)=>'R$ '+n.toFixed(2).replace('.',',');
+
+      const elTotal   = document.getElementById('tot-geral');
+      const elPago    = document.getElementById('tot-pago');
+      const elPendente= document.getElementById('tot-pendente');
+
+      if(elTotal)    elTotal.textContent   = fmt(total);
+      if(elPago)     elPago.textContent    = fmt(pago);
+      if(elPendente) elPendente.textContent= fmt(pendente);
+    }
+
+    function ensureEmpty(){
+      const tbody=document.querySelector('#tabela-entregas tbody');
+      if(!tbody) return;
+      const any=tbody.querySelector('tr[id^="row-"]');
+      let msg=tbody.querySelector('.no-rows');
+      if(!any){
+        if(!msg){
+          msg=document.createElement('tr');
+          msg.className='no-rows';
+          msg.innerHTML='<td colspan="8" style="text-align:center">Nenhuma entrega encontrada.</td>';
+          tbody.appendChild(msg);
+        }
+      }else if(msg){
+        msg.remove();
+      }
+    }
+
+    // =============================
+    // FILTROS
+    // =============================
+    const form=document.getElementById('form-filtros');
+    if(form){
+      form.addEventListener('submit',()=>{
+        const status=document.getElementById('status_pgto').value;
+        const hidden=document.getElementById('todas_datas');
+        if(status==='pendente'){
+          hidden.value='1';
+          document.getElementById('f-inicio').value='';
+          document.getElementById('f-fim').value='';
+        }else{
+          hidden.value='';
+        }
+      });
+    }
+
+    function updateScope(){
+      const url=new URL(location.href);
+      const status=url.searchParams.get('status_pgto')||
+                    document.getElementById('status_pgto')?.value||
+                    'todas';
+      const el = document.getElementById('escopo');
+      if(!el) return;
+      el.textContent = (status==='pendente')
+        ? 'Exibindo TODAS as entregas PENDENTES (sem filtrar por data).'
+        : 'Exibindo ENTREGAS do DIA ATUAL. Use o filtro para outros dias.';
+    }
+
+    // =============================
+    // PAGAMENTO (não remove linha)
+    // =============================
+    async function togglePagamento(evt,el){
+      evt.preventDefault();
+      lastScrollY=window.scrollY;
+      const id=el.dataset.id;
+      try{
+        const resp=await fetch(`{{ url_for('toggle_pagamento', id=0) }}`.replace('0',id),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({})
+        });
+        let data=null;
+        try{ data=await resp.json(); }catch{}
+
+        if(!resp.ok){
+          alert((data&&data.error)||'Falha ao alterar pagamento.');
+          return;
+        }
+        const novo=(data.status_pagamento||'pendente').toLowerCase();
+        el.dataset.status=novo;
+        el.textContent=(novo==='pago')?'Pago':'Pendente';
+        el.classList.toggle('pgto-pago',novo==='pago');
+        el.classList.toggle('pgto-pendente',novo!=='pago');
+        el.setAttribute('aria-pressed',String(novo==='pago'));
+        recalcTotals();
+      }catch(err){
+        alert('Erro: '+err.message);
+      }
+      setTimeout(preserveScroll,0);
+    }
+
+    // =============================
+    // MODAL "Recebido por"
+    // =============================
+    let CURRENT_ENTREGA_ID=null;
+
+    function openRecebidoModal(id){
+      CURRENT_ENTREGA_ID=id;
+      lastScrollY=window.scrollY;
+      const ov=document.getElementById('rcb-overlay');
+      if(!ov) return;
+      ov.classList.add('open');
+      document.body.style.overflow='hidden';
+      const input=document.getElementById('rcb-input-global');
+      if(input){
+        input.value='';
+        setTimeout(()=>input.focus(),0);
+      }
+    }
+
+    function closeRecebidoModal(){
+      const ov=document.getElementById('rcb-overlay');
+      if(!ov) return;
+      ov.classList.remove('open');
+      document.body.style.overflow='';
+      setTimeout(preserveScroll,0);
+    }
+
+    (function initModal(){
+      const btnCancel=document.getElementById('rcb-cancel');
+      const overlay=document.getElementById('rcb-overlay');
+      const btnOk=document.getElementById('rcb-ok');
+
+      if(btnCancel){
+        btnCancel.addEventListener('click', closeRecebidoModal);
+      }
+      if(overlay){
+        overlay.addEventListener('click', (e)=>{
+          if(e.target.id==='rcb-overlay') closeRecebidoModal();
+        });
+      }
+      if(btnOk){
+        btnOk.addEventListener('click', ()=>{
+          if(CURRENT_ENTREGA_ID) confirmarRecebido(CURRENT_ENTREGA_ID,false);
+        });
+      }
+      document.addEventListener('keydown', (e)=>{
+        if(e.key==='Escape') closeRecebidoModal();
+        if(e.key==='Enter' && overlay && overlay.classList.contains('open')){
+          e.preventDefault();
+          if(CURRENT_ENTREGA_ID) confirmarRecebido(CURRENT_ENTREGA_ID,false);
+        }
+      });
+    })();
+
+    function handleEntregaClick(el){
+      const id=el.dataset.id;
+      const entregue=el.dataset.entregue==='1';
+      if(!entregue){
+        openRecebidoModal(id);
+      }else if(confirm('Marcar como PENDENTE novamente?')){
+        confirmarRecebido(id,true);
+      }
+    }
+
+    async function confirmarRecebido(id,desfazer=false){
+      lastScrollY=window.scrollY;
+      if(desfazer){
+        const fd = new FormData();
+        fd.append('status','pendente');
+        fd.append('recebido_por','');
+        try{
+          const resp = await fetch(`{{ url_for('editar_entrega', id=0) }}`.replace('0',id),{
+            method:'POST',
+            body: fd
+          });
+          if(!resp.ok){
+            alert('Falha ao desfazer recebido.');
+            return;
+          }
+          const chip=document.querySelector(`.chip[data-id="${id}"][data-entregue]`);
+          if(chip){
+            chip.dataset.entregue='0';
+            chip.textContent='Pendente';
+            chip.classList.remove('entregue');
+            chip.classList.add('pgto-pendente');
+          }
+        }catch(err){
+          alert('Erro: '+err.message);
+        }
+        setTimeout(preserveScroll,0);
+        return;
+      }
+
+      const input=document.getElementById('rcb-input-global');
+      const nome=(input && input.value ? input.value : '').trim();
+      if(!nome){
+        alert('Informe o nome de quem recebeu.');
+        return;
+      }
+      try{
+        const resp=await fetch(`{{ url_for('cooperado_marcar_entregue', id=0) }}`.replace('0',id),{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({recebido_por:nome})
+        });
+        let data=null;
+        try{ data=await resp.json(); }catch{}
+
+        if(!resp.ok || (data && data.ok===false)){
+          alert((data&&data.error)||'Falha ao atualizar entrega.');
+          return;
+        }
+        const chip=document.querySelector(`.chip[data-id="${id}"][data-entregue]`);
+        if(chip){
+          chip.dataset.entregue='1';
+          chip.textContent='Entregue';
+          chip.classList.add('entregue');
+          chip.classList.remove('pgto-pendente');
+        }
+        closeRecebidoModal();
+      }catch(err){
+        alert('Erro: '+err.message);
+      }
+      setTimeout(preserveScroll,0);
+    }
+
+    window.addEventListener('beforeunload',()=>{lastScrollY=window.scrollY;});
+
+    // =============================
+    // ABAS
+    // =============================
+    document.querySelectorAll('.tab-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = document.getElementById(btn.dataset.tab);
+        if(tab) tab.classList.add('active');
+      });
+    });
+
+    // =============================
+    // ACEITAR / RECUSAR ENTREGA
+    // =============================
+    async function aceitarEntrega(id){
+      try{
+        const resp = await fetch(`{{ url_for('cooperado_aceitar_entrega', id=0) }}`.replace('0', id), {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({})
+        });
+        const data = await resp.json();
+        if(!resp.ok || data.ok===false){
+          alert(data.error || 'Falha ao aceitar entrega.');
+          return;
+        }
+        // Recarrega para mostrar em "Minhas entregas"
+        location.reload();
+      }catch(e){
+        alert('Erro ao aceitar: '+e.message);
+      }
+    }
+
+    async function recusarEntrega(id){
+      if(!confirm('Tem certeza que deseja recusar esta entrega?')) return;
+      try{
+        const resp = await fetch(`{{ url_for('cooperado_recusar_entrega', id=0) }}`.replace('0', id), {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({})
+        });
+        const data = await resp.json();
+        if(!resp.ok || data.ok===false){
+          alert(data.error || 'Falha ao recusar entrega.');
+          return;
+        }
+        const tr = document.querySelector(`#tab-chamadas tr[data-id="${id}"]`);
+        if(tr) tr.remove();
+      }catch(e){
+        alert('Erro ao recusar: '+e.message);
+      }
+    }
+
+    // =============================
+    // SOM QUANDO UMA ENTREGA FOR ATRIBUÍDA
+    // =============================
+    async function checarNovasEntregas(){
+      try{
+        const resp = await fetch(`{{ url_for('cooperado_novas_corridas') }}`);
+        const data = await resp.json();
+        if(data.nova){
+          const audio = document.getElementById('som-nova-entrega');
+          if(audio) audio.play().catch(()=>{});
+        }
+      }catch(e){
+        console.log('Erro ao checar novas entregas:', e);
+      }
+    }
+    setInterval(checarNovasEntregas, 10000);
+
+    // =============================
+    // AJUDA / SOCORRO
+    // =============================
+    const radiosSocorro = document.querySelectorAll('input[name="tipo"]');
+    const outrosBox = document.getElementById('socorro-outros-box');
+    if(radiosSocorro.length && outrosBox){
+      radiosSocorro.forEach(r=>{
+        r.addEventListener('change', ()=>{
+          if(r.value === 'outros' && r.checked){
+            outrosBox.style.display = 'block';
+          }else if(r.checked){
+            outrosBox.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    async function enviarSocorro(e){
+      e.preventDefault();
+      const tipoEl = document.querySelector('input[name="tipo"]:checked');
+      const tipo = tipoEl ? tipoEl.value : null;
+      const detalhesEl = document.getElementById('socorro-outros-text');
+      const detalhes = (detalhesEl && detalhesEl.value ? detalhesEl.value : '').trim();
+
+      if(!tipo){
+        alert('Selecione uma opção de socorro.');
+        return;
+      }
+      if(tipo === 'outros' && !detalhes){
+        alert('Descreva o que aconteceu em "Outros".');
+        return;
+      }
+
+      try{
+        const resp = await fetch(`{{ url_for('cooperado_socorro') }}`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ tipo, detalhes })
+        });
+        const data = await resp.json();
+        if(!resp.ok || data.ok===false){
+          alert(data.error || 'Falha ao enviar pedido de socorro.');
+          return;
+        }
+        alert('Pedido de socorro enviado para a supervisão.');
+        const form = document.getElementById('form-socorro');
+        if(form) form.reset();
+        if(outrosBox) outrosBox.style.display = 'none';
+      }catch(err){
+        alert('Erro ao enviar socorro: '+err.message);
+      }
+    }
+
+    // =============================
+    // RASTREAMENTO / GPS
+    // =============================
+    let gpsWatchId = null;
+    let gpsAtivo   = false;
+
+    const gpsStatusEl = document.getElementById('gps-status');
+
+    function atualizarBadgeGPS(status, textoExtra){
+      if(!gpsStatusEl) return;
+      gpsStatusEl.classList.remove('gps-status--on','gps-status--off','gps-status--error');
+
+      if(status === 'on'){
+        gpsStatusEl.classList.add('gps-status--on');
+        gpsStatusEl.textContent = 'Localização: ON' + (textoExtra ? ' · ' + textoExtra : '');
+      }else if(status === 'error'){
+        gpsStatusEl.classList.add('gps-status--error');
+        gpsStatusEl.textContent = 'Localização: ERRO';
+      }else{
+        gpsStatusEl.classList.add('gps-status--off');
+        gpsStatusEl.textContent = 'Localização: OFF';
+      }
+    }
+
+    async function enviarPosicao(lat,lng,accuracy,heading,speed){
+      try{
+        await fetch(`{{ url_for('cooperado_atualizar_localizacao') }}`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ lat, lng, accuracy, heading, speed })
+        });
+      }catch(e){
+        console.log('Falha ao enviar localização:', e);
+      }
+    }
+
+    function iniciarRastreamento(){
+      if(!navigator.geolocation){
+        alert('Seu navegador não suporta geolocalização.');
+        atualizarBadgeGPS('error');
+        return;
+      }
+      if(gpsWatchId !== null){
+        // Já está rastreando
+        return;
+      }
+
+      atualizarBadgeGPS('on', 'Buscando...');
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        pos=>{
+          gpsAtivo = true;
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+          const heading = pos.coords.heading;
+          const speed   = pos.coords.speed;
+
+          atualizarBadgeGPS('on', 'OK');
+          enviarPosicao(lat,lng,acc,heading,speed);
+        },
+        err=>{
+          console.log('Erro GPS:', err);
+          gpsAtivo = false;
+          atualizarBadgeGPS('error');
+        },
+        {
+          enableHighAccuracy:true,
+          maximumAge:5000,
+          timeout:15000
+        }
+      );
+    }
+
+    async function pararRastreamento(){
+      if(gpsWatchId !== null && navigator.geolocation){
+        navigator.geolocation.clearWatch(gpsWatchId);
+      }
+      gpsWatchId = null;
+      gpsAtivo   = false;
+      atualizarBadgeGPS('off');
+
+      // avisa o back-end que o cooperado ficou OFF
+      try{
+        await fetch(`{{ url_for('cooperado_atualizar_localizacao') }}`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ offline:true })
+        });
+      }catch(e){
+        console.log('Falha ao enviar offline:', e);
+      }
+    }
+
+    if(gpsStatusEl){
+      gpsStatusEl.addEventListener('click', ()=>{
+        if(gpsAtivo || gpsWatchId !== null){
+          if(confirm('Deseja desligar o rastreamento da localização?')){
+            pararRastreamento();
+          }
+        }else{
+          iniciarRastreamento();
+        }
+      });
+    }
+
+    // =============================
+    // ON LOAD
+    // =============================
+    window.addEventListener('load', ()=>{
+      updateScope();
+      recalcTotals();
+      ensureEmpty();
+      setTimeout(preserveScroll,0);
+      // se quiser já iniciar o rastreamento automaticamente:
+      // iniciarRastreamento();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Alerta de segurança</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #f4f4f5;
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 720px;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #b91c1c;
+      color: #f9fafb;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #f97373;
+      box-shadow: 0 0 0 0 rgba(248,113,113,0.7);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(248,113,113,0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(248,113,113,0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(248,113,113,0);
+      }
+    }
+
+    .card-header-title {
+      font-weight: 600;
+      font-size: 0.98rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .card-body {
+      padding: 16px;
+    }
+
+    .title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #111827;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #4b5563;
+      margin-bottom: 10px;
+    }
+
+    .highlight {
+      font-weight: 600;
+      color: #b91c1c;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+      margin: 14px 0 6px;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 640px) {
+      .details-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .detail-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #f9fafb;
+      font-size: 0.85rem;
+    }
+
+    .detail-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+      margin-bottom: 2px;
+    }
+
+    .detail-value {
+      word-break: break-all;
+      color: #111827;
+    }
+
+    .user-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-size: 0.78rem;
+      margin-top: 4px;
+    }
+
+    .user-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+    }
+
+    .log-box {
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .log-line {
+      opacity: 0;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      animation: fadeIn 0.25s forwards;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    .senha-box {
+      margin-top: 14px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      font-size: 0.88rem;
+      color: #7f1d1d;
+    }
+
+    .senha-label {
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .senha-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .senha-input-row input {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 0.88rem;
+    }
+
+    .senha-input-row button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.86rem;
+      font-weight: 500;
+      background: #b91c1c;
+      color: #f9fafb;
+      cursor: pointer;
+    }
+
+    .senha-input-row button:disabled,
+    .senha-input-row input:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .senha-msg {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #7f1d1d;
+      min-height: 18px;
+    }
+
+    .countdown {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      font-size: 0.88rem;
+      color: #991b1b;
+    }
+
+    .small {
+      margin-top: 8px;
+      font-size: 0.72rem;
+      color: #6b7280;
+    }
+
+    .footer-warning {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.8rem;
+      color: #4b5563;
+      line-height: 1.5;
+    }
+
+    /* Overlay preto final */
+    #overlay-bloqueio {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      color: #f97373;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      text-align: center;
+      padding: 16px;
+    }
+
+    #overlay-bloqueio h1 {
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    #overlay-bloqueio p {
+      font-size: 0.9rem;
+      max-width: 360px;
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="pulse-dot"></div>
+      <div>
+        <div class="card-header-title">Alerta de segurança do sistema</div>
+        <div style="font-size: 0.75rem; opacity: 0.9;">
+          Monitoramento automático de acessos • Registro nº {{ registro_id or "—" }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="title">Acesso não autorizado identificado</div>
+      <div class="subtitle">
+        Foi detectado o uso de <span class="highlight">credenciais restritas</span>. 
+        Este evento foi registrado para análise pela área responsável.
+      </div>
+
+      {% if username %}
+      <div class="section-title">Credenciais utilizadas</div>
+      <div class="user-tag">
+        <span class="user-dot"></span>
+        Usuário informado: <strong>{{ username }}</strong>
+      </div>
+      {% endif %}
+
+      <div class="section-title">Dados da sessão</div>
+      <div class="details-grid">
+        <div class="detail-box">
+          <div class="detail-label">Endereço IP</div>
+          <div class="detail-value" id="ip">{{ ip or "—" }}</div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-label">Data e horário do acesso</div>
+          <div class="detail-value">{{ acesso_data or "—" }}</div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-label">Navegador / dispositivo</div>
+          <div class="detail-value" id="ua">{{ user_agent or "—" }}</div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-label">Localização aproximada</div>
+          <div class="detail-value" id="location">Analisando origem da conexão...</div>
+        </div>
+      </div>
+
+      <div class="section-title">Detalhes do dispositivo</div>
+      <div class="details-grid">
+        <div class="detail-box">
+          <div class="detail-label">Resolução de tela</div>
+          <div class="detail-value" id="screen-info">-</div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-label">Idioma / Fuso horário</div>
+          <div class="detail-value" id="locale-info">-</div>
+        </div>
+      </div>
+
+      <div class="section-title">Registro técnico</div>
+      <div class="log-box" id="log"></div>
+
+      <!-- BLOCO DA SENHA FALSA -->
+      <div class="senha-box">
+        <div class="senha-label">
+          Digite o código do supervisor para ter acesso:
+        </div>
+        <form id="senha-form">
+          <div class="senha-input-row">
+            <input type="password" id="senha" placeholder="Senha do usuário">
+            <button type="submit" id="senha-btn">Validar</button>
+          </div>
+          <div class="senha-msg" id="senha-msg"></div>
+        </form>
+
+        <div class="countdown" id="countdown-box">
+          Esta sessão será bloqueada automaticamente em 
+          <span id="countdown-segundos">15</span> segundos.
+        </div>
+      </div>
+
+      <div class="footer-warning">
+        As informações desta tela podem ser utilizadas para identificação do responsável
+        pelo uso indevido de credenciais e para eventuais medidas internas de segurança.
+      </div>
+
+      <div class="small">
+        Registro gerado automaticamente pelo módulo de segurança. 
+        Não é possível reverter este procedimento a partir deste dispositivo.
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay final preto -->
+  <div id="overlay-bloqueio">
+    <h1>Sessão bloqueada</h1>
+    <p>
+      Este acesso foi encerrado pelo módulo de segurança do sistema.
+      Informações técnicas foram registradas para análise.
+    </p>
+  </div>
+
+  <script>
+    // Preenche tela / idioma / timezone e localização "convincente"
+    (function fillDeviceInfo() {
+      const screenInfo = document.getElementById("screen-info");
+      const localeInfo = document.getElementById("locale-info");
+      const ipEl = document.getElementById("ip");
+      const locEl = document.getElementById("location");
+
+      const w = window.screen.width;
+      const h = window.screen.height;
+      const dpr = window.devicePixelRatio || 1;
+      screenInfo.textContent = `${w} x ${h} (densidade ${dpr.toFixed(1)})`;
+
+      const lang = navigator.language || navigator.userLanguage || "desconhecido";
+      let tz = "fuso horário não identificado";
+      try {
+        tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch (e) {}
+      localeInfo.textContent = `${lang} • ${tz}`;
+
+      function randomIP() {
+        function r() { return Math.floor(Math.random() * 255); }
+        return r() + "." + r() + "." + r() + "." + r();
+      }
+
+      function randomLocation(ip) {
+        const bases = [
+          "Conexão identificada em rede móvel nacional",
+          "Conexão identificada em provedor residencial",
+          "Conexão identificada em rede corporativa",
+          "Conexão mascarada (possível uso de VPN ou proxy)"
+        ];
+        return bases[Math.floor(Math.random() * bases.length)];
+      }
+
+      if (!ipEl.textContent.trim() || ipEl.textContent.trim() === "—") {
+        ipEl.textContent = randomIP();
+      }
+
+      locEl.textContent = randomLocation(ipEl.textContent.trim());
+    })();
+
+    // Log técnico (fake, mas sério)
+    const logEl = document.getElementById("log");
+    const logLines = [
+      "[INFO] Monitoramento automático iniciado para esta sessão.",
+      "[INFO] Validando credenciais informadas...",
+      "[WARN] Credencial marcada como restrita para uso geral.",
+      "[INFO] Capturando IP de origem e dados do dispositivo...",
+      "[OK] Dados da sessão associados ao registro de segurança.",
+      "[INFO] Verificando histórico de acessos com esta credencial...",
+      "[OK] Evento sinalizado para análise da área responsável.",
+      "[ALERTA] Tentativas adicionais de autenticação serão registradas."
+    ];
+    let logIndex = 0;
+
+    function addLogLine() {
+      if (logIndex >= logLines.length) return;
+      const line = document.createElement("div");
+      line.className = "log-line";
+      line.style.animationDelay = (logIndex * 0.05) + "s";
+      line.textContent = logLines[logIndex];
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+      logIndex++;
+      setTimeout(addLogLine, 700);
+    }
+    setTimeout(addLogLine, 400);
+
+    // Lógica da senha falsa + contagem regressiva
+    const form = document.getElementById("senha-form");
+    const inputSenha = document.getElementById("senha");
+    const btnSenha = document.getElementById("senha-btn");
+    const msgSenha = document.getElementById("senha-msg");
+    const countdownBox = document.getElementById("countdown-box");
+    const segundosEl = document.getElementById("countdown-segundos");
+    const overlay = document.getElementById("overlay-bloqueio");
+
+    let bloqueioIniciado = false;
+    let segundos = 15;
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      if (bloqueioIniciado) return;
+
+      bloqueioIniciado = true;
+
+      const valorDigitado = inputSenha.value;
+      inputSenha.value = "";
+      inputSenha.disabled = true;
+      btnSenha.disabled = true;
+
+      msgSenha.textContent = "Código incorreto. Esta tentativa foi registrada.";
+      countdownBox.style.display = "block";
+
+      iniciarContagem();
+    });
+
+    function iniciarContagem() {
+      segundosEl.textContent = segundos;
+      const interval = setInterval(() => {
+        segundos--;
+        if (segundos <= 0) {
+          clearInterval(interval);
+          segundosEl.textContent = "0";
+          finalizarBloqueio();
+        } else {
+          segundosEl.textContent = segundos;
+        }
+      }, 1000);
+    }
+
+    function finalizarBloqueio() {
+      // Tenta fechar a aba (geralmente só funciona se a aba foi aberta via script)
+      try {
+        window.close();
+      } catch (e) {}
+
+      // Se não fechar, escurece tudo
+      overlay.style.display = "flex";
+    }
+  </script>
+</body>
+</html>

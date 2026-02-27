@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cadastrar Entrega - Cliente da lista ou manual</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --azul:#0033aa; --azul-2:#002b88; --bg:#f0f4ff; --card:#fff;
+      --borda:#d9e1f2; --texto:#1a1a1a; --muted:#667085; --chip:#eef3ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--texto);
+      display:flex; flex-direction:column; align-items:center;
+      padding:20px;
+    }
+    h1{ color:var(--azul); margin-bottom:18px; }
+    form{
+      background:var(--card); padding:22px; border-radius:12px;
+      box-shadow:0 0 15px rgba(0,0,0,.08);
+      width:100%; max-width:460px;
+      border:1px solid var(--borda);
+    }
+    label{ display:block; margin:10px 0 6px; font-weight:bold; }
+    input[type="text"], input[type="number"], select{
+      width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;
+      margin-bottom:14px; box-sizing:border-box; background:#fff;
+      outline:none;
+    }
+    input:focus, select:focus{ border-color:var(--azul); box-shadow:0 0 0 3px #0033aa22; }
+    button{
+      width:100%; padding:12px; border:none; border-radius:10px;
+      background:var(--azul); color:#fff; font-size:16px; cursor:pointer;
+      margin-top:4px;
+    }
+    button:hover{ background:var(--azul-2); }
+    small.hint{ display:block; margin:-6px 0 12px; color:#555; }
+    .top-actions{width:100%; max-width:460px; display:flex; justify-content:space-between; gap:10px; margin-bottom:10px;}
+    a.link{ color:var(--azul); text-decoration:none; }
+    a.link:hover{ text-decoration:underline }
+
+    /* Resultados dinâmicos */
+    .search-hint{
+      font-size:12px; color:var(--muted); margin:4px 0 6px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .result-list{
+      border:1px solid var(--borda);
+      background:#fff; border-radius:10px; padding:6px;
+      margin:-2px 0 14px; /* fica logo abaixo do campo manual */
+      max-height:260px; overflow:auto;
+    }
+    .result-item{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px; border-radius:8px; cursor:pointer;
+    }
+    .result-item + .result-item{ border-top:1px dashed #eef2ff; }
+    .result-item:hover, .result-item.active{ background:var(--chip); }
+    .result-main{ display:flex; flex-direction:column; gap:2px; }
+    .result-nome{ font-weight:600; }
+    .result-fone{ font-size:12px; color:var(--muted); }
+    .empty{
+      padding:10px; color:var(--muted); text-align:center;
+    }
+    .pill{
+      padding:2px 8px; border-radius:999px; background:#f8fafc; border:1px solid #e2e8f0;
+      font-size:11px; color:#475569;
+    }
+    mark{ background:#fffb91; padding:0 2px; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <h1>Cadastrar Entrega</h1>
+
+  <div class="top-actions">
+    <a class="link" href="{{ url_for('admin') }}">← Voltar ao Painel</a>
+    <a class="link" href="{{ url_for('clientes') }}">⚙️ Gerenciar Clientes</a>
+  </div>
+
+  <form method="POST" action="{{ url_for('cadastrar_entrega') }}">
+    <!-- 1) PUXAR CLIENTE DA LISTA (AGORA COM ID) -->
+    <label for="cliente_select">Cliente (cadastrado):</label>
+    <select id="cliente_select">
+      <option value="">-- Selecione um cliente (opcional) --</option>
+      {% if clientes %}
+        {% for cl in clientes %}
+          <option value="{{ cl.id }}" data-nome="{{ cl.nome|e }}">{{ cl.nome }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    <small class="hint">Se não encontrar o cliente, digite abaixo.</small>
+
+    <!-- HIDDEN QUE VAI PARA O BACKEND -->
+    <input type="hidden" id="cliente_id" name="cliente_id" />
+
+    <!-- 2) DIGITAR MANUALMENTE (este campo é o que será exibido na entrega) -->
+    <label for="cliente_manual">Ou digite o nome do cliente (manual):</label>
+    <input
+      id="cliente_manual"
+      name="cliente"
+      type="text"
+      placeholder="Ex.: Restaurante Bom Sabor ou últimos dígitos do telefone (ex.: 4812)"
+      required
+      autocomplete="off"
+      aria-autocomplete="list"
+      aria-controls="resultados"
+      aria-expanded="true"
+    />
+    <div class="search-hint">
+      🔎 Resultados abaixo aparecem enquanto você digita
+      <span class="pill">nome</span>
+      <span class="pill">últimos dígitos do telefone</span>
+    </div>
+    <div id="resultados" class="result-list" role="listbox" aria-label="Resultados de clientes"></div>
+
+    <!-- BAIRRO 100% MANUAL -->
+    <label for="bairro">Bairro da entrega:</label>
+    <input id="bairro" name="bairro" type="text" placeholder="Digite o bairro da entrega" required>
+
+    <!-- Demais campos -->
+    <label for="valor">Valor (R$):</label>
+    <input id="valor" name="valor" type="number" step="0.01" min="0" required>
+
+    <label for="pagamento">Forma de Pagamento:</label>
+    <select id="pagamento" name="pagamento" required>
+      <option value="CREDITO_AUTO">Crédito automático (usar saldo do cliente)</option>
+      <option value="Dinheiro">Dinheiro</option>
+      <option value="Pix">Pix</option>
+      <option value="Pix (Cooperativa)">Pix (Cooperativa)</option>
+      <option value="Comanda">Comanda</option>
+    </select>
+    <small class="hint">
+      Se deixar em <strong>Crédito automático</strong>, o sistema tenta usar o saldo de crédito do cliente.
+      Se o cliente não tiver crédito suficiente, será exibido um aviso para você escolher outra forma de pagamento.
+    </small>
+
+    <label for="cooperado_id">Atribuir Cooperado (opcional):</label>
+    <select id="cooperado_id" name="cooperado_id">
+      <option value="">-- Nenhum --</option>
+      {% for c in cooperados %}
+        <option value="{{ c.id }}">{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit">Cadastrar</button>
+  </form>
+
+  <!-- Dump seguro dos clientes como JSON (id/nome/telefone) -->
+  <script id="clientes-json" type="application/json">
+    [
+      {% for cl in clientes %}
+        {
+          "id": {{ cl.id }},
+          "nome": {{ cl.nome|tojson }},
+          "telefone": {{ (cl.telefone if cl.telefone is defined and cl.telefone else '')|tojson }}
+        }{{ ',' if not loop.last }}
+      {% endfor %}
+    ]
+  </script>
+
+  <script>
+    // Utilitários
+    const deaccent = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const onlyDigits = (s) => (s || '').replace(/\D+/g, '');
+    const norm = (s) => deaccent(String(s || '').toLowerCase().trim());
+
+    function highlight(text, query){
+      if(!query) return text;
+      const q = norm(query);
+      if(!q) return text;
+      const ntext = deaccent(text);
+      const idx = ntext.toLowerCase().indexOf(q);
+      if(idx === -1) return text;
+      const end = idx + q.length;
+      return text.substring(0, idx) + '<mark>' + text.substring(idx, end) + '</mark>' + text.substring(end);
+    }
+
+    // Leitura dos clientes do JSON
+    let CLIENTES = [];
+    try{
+      const raw = document.getElementById('clientes-json')?.textContent || '[]';
+      CLIENTES = JSON.parse(raw).map((c) => ({
+        id: c?.id ?? null,
+        nome: c?.nome ?? '',
+        telefone: String(c?.telefone ?? '').trim()
+      }));
+    }catch(e){
+      CLIENTES = [];
+    }
+
+    // Elementos
+    const sel = document.getElementById('cliente_select');
+    const manual = document.getElementById('cliente_manual');
+    const resultados = document.getElementById('resultados');
+    const hiddenId = document.getElementById('cliente_id');
+
+    // Sincroniza select -> manual + hidden
+    if (sel && manual && hiddenId) {
+      sel.addEventListener('change', () => {
+        const id = sel.value || '';
+        const opt = sel.selectedOptions[0];
+        const nome = opt ? (opt.getAttribute('data-nome') || opt.textContent || '') : '';
+
+        if (nome) {
+          manual.value = nome;
+        }
+        hiddenId.value = id || '';
+        if (!id) {
+          // se limpar o select, limpa hidden
+          hiddenId.value = '';
+        }
+        if (nome) {
+          renderResultados(nome);
+        } else {
+          renderResultados(manual.value);
+        }
+      });
+    }
+
+    // Rendering da lista dinâmica
+    let activeIndex = -1; // para navegação via teclado
+    function renderResultados(query){
+      const q = String(query || '').trim();
+      const qDigits = onlyDigits(q);
+      const qName = norm(q.replace(/\d+/g, '')); // parte textual
+
+      const filtrados = CLIENTES
+        .map((c) => {
+          const nomeN = norm(c.nome);
+          const foneD = onlyDigits(c.telefone);
+          let match = false;
+          let score = 999;
+
+          if (q && !qName && qDigits) {
+            if (foneD.endsWith(qDigits)) { match = true; score = 0; }
+            else if (foneD.includes(qDigits)) { match = true; score = 1; }
+          } else if (qName) {
+            if (nomeN.includes(qName)) { match = true; score = nomeN.indexOf(qName); }
+            if (qDigits && foneD) {
+              if (foneD.endsWith(qDigits)) { match = true; score = Math.min(score, 0); }
+              else if (foneD.includes(qDigits)) { match = true; score = Math.min(score, 1); }
+            }
+          } else if (!q) {
+            match = true; score = 50;
+          }
+
+          return { ...c, match, score };
+        })
+        .filter(it => it.match)
+        .sort((a,b) => a.score - b.score || a.nome.localeCompare(b.nome))
+        .slice(0, 12);
+
+      resultados.innerHTML = '';
+      activeIndex = -1;
+
+      if (filtrados.length === 0) {
+        resultados.innerHTML = `<div class="empty">Nenhum resultado. Tente digitar o <strong>nome</strong> ou os <strong>últimos dígitos</strong> do telefone.</div>`;
+        resultados._items = [];
+        return;
+      }
+
+      filtrados.forEach((c, i) => {
+        const li = document.createElement('div');
+        li.className = 'result-item';
+        li.setAttribute('role', 'option');
+        li.dataset.index = i;
+
+        const nomeHTML = highlight(c.nome, q.replace(/\d+/g,'').trim());
+        const fone = c.telefone || '—';
+
+        li.innerHTML = `
+          <div class="result-main">
+            <span class="result-nome">${nomeHTML}</span>
+            <span class="result-fone">${fone}</span>
+          </div>
+          <div class="pill">Selecionar</div>
+        `;
+
+        li.addEventListener('click', () => escolher(filtrados[i]));
+        li.addEventListener('mousemove', () => setActive(i));
+        resultados.appendChild(li);
+      });
+
+      resultados._items = filtrados;
+    }
+
+    function setActive(i){
+      const children = Array.from(resultados.querySelectorAll('.result-item'));
+      children.forEach(el => el.classList.remove('active'));
+      if (i >= 0 && i < children.length) {
+        children[i].classList.add('active');
+        activeIndex = i;
+      } else {
+        activeIndex = -1;
+      }
+    }
+
+    function escolher(cliente){
+      if (!cliente) return;
+      manual.value = cliente?.nome || '';
+      if (hiddenId) {
+        hiddenId.value = cliente?.id != null ? String(cliente.id) : '';
+      }
+
+      if (sel) {
+        let matched = false;
+        const opts = Array.from(sel.options);
+        for (const o of opts) {
+          if (cliente.id != null && String(o.value) === String(cliente.id)) {
+            sel.value = o.value;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          sel.value = '';
+        }
+      }
+
+      renderResultados(cliente?.nome || '');
+      document.getElementById('bairro')?.focus();
+    }
+
+    if (manual) {
+      manual.addEventListener('input', (e) => {
+        // se digitar manualmente, limpa o id e o select
+        if (hiddenId) hiddenId.value = '';
+        if (sel) sel.value = '';
+        renderResultados(e.target.value);
+      });
+
+      manual.addEventListener('keydown', (e) => {
+        const items = Array.from(resultados.querySelectorAll('.result-item'));
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
+          setActive(next);
+          scrollIntoViewIfNeeded(items[next]);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
+          setActive(prev);
+          scrollIntoViewIfNeeded(items[prev]);
+        } else if (e.key === 'Enter') {
+          if (activeIndex >= 0) {
+            e.preventDefault();
+            const escolhaItem = resultados._items?.[activeIndex];
+            if (escolhaItem) escolher(escolhaItem);
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          resultados.innerHTML = '';
+          resultados._items = [];
+          activeIndex = -1;
+        }
+      });
+
+      renderResultados('');
+    }
+
+    function scrollIntoViewIfNeeded(el){
+      const c = resultados;
+      const eb = el.getBoundingClientRect();
+      const cb = c.getBoundingClientRect();
+      if (eb.bottom > cb.bottom) c.scrollTop += (eb.bottom - cb.bottom);
+      if (eb.top < cb.top) c.scrollTop -= (cb.top - eb.top);
+    }
+
+    // Sincroniza a digitação com o select (apenas visual)
+    if (sel && manual) {
+      manual.addEventListener('input', () => {
+        const q = norm(manual.value);
+        const qDigits = onlyDigits(manual.value);
+        Array.from(sel.options).forEach((opt, idx) => {
+          if (idx === 0) return;
+          const nomeN = norm(opt.getAttribute('data-nome') || opt.textContent || '');
+          const matchTxt = q ? nomeN.includes(q) : true;
+          let match = matchTxt;
+          if (qDigits) {
+            match = match || nomeN.includes(qDigits);
+          }
+          opt.hidden = !match;
+        });
+      });
+    }
+  </script>
+</body>
+</html>

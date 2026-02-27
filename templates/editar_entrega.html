@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Editar Entrega - Admin - Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #0047ab, #007bff);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+    }
+    .form-container {
+      background-color: white;
+      padding: 30px 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+      width: 100%;
+      max-width: 520px;
+      margin: 32px auto;
+    }
+    h1 {
+      text-align: center;
+      color: #0047ab;
+      margin-bottom: 20px;
+      font-size: 1.18rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      color: #333;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 9px;
+      margin-bottom: 13px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 0.95rem;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #0047ab;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button:hover {
+      background-color: #003f99;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-bottom: 15px;
+      color: #0047ab;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    .info-box {
+      background: #f3f6ff;
+      border: 1px solid #d2ddff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      color: #123067;
+      margin-bottom: 14px;
+    }
+    .info-box strong {
+      font-weight: 800;
+    }
+    .money {
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h1>Editar Entrega</h1>
+    <a class="back-link" href="{{ url_for('admin', cooperado_id='todos', status_pagamento='todos') }}">← Voltar</a>
+
+    {# Cálculos de crédito desta entrega #}
+    {% set valor_entrega = entrega.valor or 0 %}
+    {% set credito_usado = entrega.credito_usado or 0 %}
+    {% set valor_liquido = valor_entrega - credito_usado if valor_entrega and credito_usado else valor_entrega %}
+
+    <!-- CAMPOS OCULTOS PARA O BACKEND SABER SE PRECISA RECALCULAR O CRÉDITO -->
+    <input type="hidden" name="valor_original" id="valor_original"
+           value="{{ '%.2f'|format(valor_entrega) }}">
+    <input type="hidden" name="credito_usado_original" id="credito_usado_original"
+           value="{{ '%.2f'|format(credito_usado) }}">
+    <input type="hidden" name="recalcular_credito" id="recalcular_credito" value="0">
+
+    <div class="info-box">
+      <div>
+        Valor da entrega:
+        <span class="money" id="info_valor_entrega">
+          R$ {{ '%.2f'|format(valor_entrega) | replace('.', ',') }}
+        </span>
+      </div>
+      <div>
+        Crédito já consumido nesta entrega:
+        <span class="money" id="info_credito_usado">
+          R$ {{ '%.2f'|format(credito_usado) | replace('.', ',') }}
+        </span>
+      </div>
+      <div>
+        Valor em aberto após abatimento:
+        <span class="money" id="info_valor_liquido">
+          R$ {{ '%.2f'|format(valor_liquido) | replace('.', ',') }}
+        </span>
+      </div>
+      <hr style="border:none;border-top:1px solid #d2ddff;margin:6px 0;">
+      <div>
+        <strong>Atenção:</strong> se você escolher
+        <strong>Pix (Cooperativa)</strong> ou
+        <strong>Crédito automático (saldo cliente)</strong> na forma de pagamento,
+        o sistema tenta abater automaticamente do crédito do cliente
+        (caso haja saldo e a entrega esteja vinculada a um cliente).
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('editar_entrega', id=entrega.id) }}">
+      <label for="cliente">Cliente:</label>
+      <input type="text" id="cliente" name="cliente" value="{{ entrega.cliente }}" required />
+
+      <label for="bairro">Bairro:</label>
+      <input type="text" id="bairro" name="bairro" value="{{ entrega.bairro }}" required />
+
+      <label for="valor">Valor:</label>
+      <input type="number" step="0.01" id="valor" name="valor"
+             value="{{ '%.2f'|format(entrega.valor or 0) }}" required />
+
+      <label for="cooperado_id">Atribuir Cooperado:</label>
+      <select name="cooperado_id" id="cooperado_id">
+        <option value="">-- Nenhum --</option>
+        {% for c in cooperados %}
+          <option value="{{ c.id }}" {% if entrega.cooperado_id == c.id %}selected{% endif %}>
+            {{ c.nome }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <label for="status_pagamento">Status Pagamento:</label>
+      <select name="status_pagamento" id="status_pagamento">
+        <option value="Pendente"
+          {% if (entrega.status_pagamento or 'Pendente')|lower != 'pago' %}selected{% endif %}>
+          Pendente
+        </option>
+        <option value="Pago"
+          {% if (entrega.status_pagamento or '')|lower == 'pago' %}selected{% endif %}>
+          Pago
+        </option>
+      </select>
+
+      <label for="status_entrega">Status Entrega:</label>
+      <select name="status_entrega" id="status_entrega">
+        <option value="pendente"
+          {% if (entrega.status_entrega or 'pendente') != 'entregue' %}selected{% endif %}>
+          Pendente
+        </option>
+        <option value="entregue"
+          {% if entrega.status_entrega == 'entregue' %}selected{% endif %}>
+          Entregue
+        </option>
+      </select>
+
+      <label for="pagamento">Forma de Pagamento:</label>
+      <select name="pagamento" id="pagamento" required>
+        <option value="Dinheiro"
+          {% if (entrega.pagamento or '') == 'Dinheiro' %}selected{% endif %}>
+          Dinheiro
+        </option>
+        <option value="Pix"
+          {% if (entrega.pagamento or '') == 'Pix' %}selected{% endif %}>
+          Pix
+        </option>
+        <option value="Comanda"
+          {% if (entrega.pagamento or '') == 'Comanda' %}selected{% endif %}>
+          Comanda
+        </option>
+        <!-- Pix (Cooperativa) – considera variações que você possa ter salvo -->
+        <option value="Pix (Cooperativa)"
+          {% if (entrega.pagamento or '')|lower in ['pix (cooperativa)', 'pix cooperativa'] %}selected{% endif %}>
+          Pix (Cooperativa)
+        </option>
+        <!-- Crédito automático (saldo cliente) – compatível com o CREDITO_AUTO do cadastro -->
+        <option value="CREDITO_AUTO"
+          {% if (entrega.pagamento or '') in ['CREDITO_AUTO', 'Crédito (Saldo Cliente)', 'Credito (Saldo Cliente)', 'credito', 'crédito'] %}
+            selected
+          {% endif %}>
+          Crédito automático (saldo cliente)
+        </option>
+      </select>
+
+      <label for="recebido_por">Recebido por (opcional):</label>
+      <input type="text" id="recebido_por" name="recebido_por"
+             value="{{ entrega.recebido_por or '' }}" />
+
+      <button type="submit">Salvar</button>
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const valorInput = document.getElementById('valor');
+      const pagamentoSelect = document.getElementById('pagamento');
+      const infoValorEntrega = document.getElementById('info_valor_entrega');
+      const infoValorLiquido = document.getElementById('info_valor_liquido');
+      const infoCreditoUsado = document.getElementById('info_credito_usado');
+      const hiddenRecalc = document.getElementById('recalcular_credito');
+      const hiddenValorOriginal = document.getElementById('valor_original');
+      const hiddenCreditoOriginal = document.getElementById('credito_usado_original');
+
+      function parseBRFloat(str) {
+        if (!str) return 0;
+        return parseFloat(String(str).replace('.', '').replace(',', '.')) || 0;
+      }
+
+      const creditoOriginal = parseBRFloat(hiddenCreditoOriginal.value);
+
+      function isPagamentoCredito(valorSel) {
+        if (!valorSel) return false;
+        const v = valorSel.toLowerCase();
+        return (
+          v === 'credito_auto' ||
+          v === 'crédito (saldo cliente)' ||
+          v === 'credito (saldo cliente)' ||
+          v === 'pix (cooperativa)' ||
+          v === 'pix cooperativa'
+        );
+      }
+
+      function atualizarInfoBox() {
+        const valorNovo = parseFloat(valorInput.value.replace(',', '.')) || 0;
+        const creditoUsado = creditoOriginal;
+
+        // Atualiza textos da caixinha
+        infoValorEntrega.textContent = 'R$ ' + valorNovo.toFixed(2).replace('.', ',');
+        infoCreditoUsado.textContent = 'R$ ' + creditoUsado.toFixed(2).replace('.', ',');
+
+        const valorLiquido = valorNovo - creditoUsado;
+        infoValorLiquido.textContent = 'R$ ' + valorLiquido.toFixed(2).replace('.', ',');
+
+        // Se for um pagamento em crédito, marca para o backend recalcular
+        if (isPagamentoCredito(pagamentoSelect.value)) {
+          hiddenRecalc.value = '1';
+        } else {
+          hiddenRecalc.value = '0';
+        }
+      }
+
+      if (valorInput && pagamentoSelect) {
+        valorInput.addEventListener('input', atualizarInfoBox);
+        pagamentoSelect.addEventListener('change', atualizarInfoBox);
+
+        // chamada inicial
+        atualizarInfoBox();
+      }
+    })();
+  </script>
+</body>
+</html>

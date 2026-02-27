@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Clientes - Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --azul:#003399; --azul-grad:linear-gradient(90deg,#003399 55%,#4f8cff 110%);
+      --azul-hover:#174ea6; --cinza-bg:#f6f8fa; --cinza-card:#fff;
+      --shadow:0 6px 24px #0033991a; --shadow-sm:0 2px 10px #00339918; --radius:14px;
+      --vermelho:#d11a1a; --verde:#13a038;
+    }
+    *{box-sizing:border-box}
+    html,body{width:100%;overflow-x:hidden}
+    body{font-family:'Inter','Segoe UI',Arial,sans-serif; margin:0; background:var(--cinza-bg); color:#222b44; padding:18px}
+    h1{margin:0 0 14px; color:#003399}
+    .wrap{max-width:1100px; margin:0 auto}
+
+    .topbar{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap}
+    .btn{background:var(--azul-grad); color:#fff; border:none; padding:10px 16px; border-radius:10px; font-weight:700; cursor:pointer; box-shadow:var(--shadow-sm); text-decoration:none; display:inline-block}
+    .btn:hover{background:var(--azul-hover)}
+    .btn-small{padding:6px 10px; border-radius:8px; font-weight:800; cursor:pointer; margin:0 2px; border:1px solid #d7e2ff; background:#fff}
+    .btn-del{background:#fff; color:var(--vermelho); border:1px solid #f1c7c7}
+    .btn-save{background:#fff; color:var(--verde); border:1px solid #bfe6c8}
+    .badge{display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #d7e2ff; border-radius:999px; padding:6px 10px; font-weight:700}
+
+    .card{background:var(--cinza-card); border:1px solid #e6ebff; border-radius:var(--radius); box-shadow:var(--shadow-sm); padding:16px; margin-bottom:14px}
+    .flash{margin:8px 0; padding:10px 12px; background:#eef6ff; border:1px solid #cfe1ff; border-radius:8px; color:#0a3a87}
+
+    form .row-4{display:grid; grid-template-columns:1fr; gap:10px}
+    label{font-size:13px; font-weight:800; color:#003399; margin-bottom:4px; display:block}
+    input[type="text"], input[type="file"]{width:100%; padding:10px; border:1px solid #a8b9e4; border-radius:8px; background:#f7faff}
+    .submit{margin-top:10px}
+
+    .searchbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px}
+    .searchbar input{flex:1; min-width:220px}
+
+    /* KPIs */
+    .kpi{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 16px}
+    .kpi .tile{flex:1 1 220px; background:#fff; border:1px solid #e6ebff; border-radius:12px; padding:12px; box-shadow:var(--shadow-sm)}
+    .kpi .title{font-size:13px; color:#4b5a7f; margin-bottom:6px}
+    .kpi .num{font-size:28px; font-weight:800; color:#0a3a87}
+    .kpi small{color:#6c7aa6}
+
+    table{width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed}
+    th,td{border:1px solid #e8ecff; padding:8px 6px; text-align:left; vertical-align:middle}
+    th{background:#f3f7ff; color:#003399}
+    td.actions{white-space:nowrap; text-align:center}
+
+    thead th:nth-child(1){width:26%}
+    thead th:nth-child(2){width:16%}
+    thead th:nth-child(3){width:18%}
+    /* Endereço +1cm */
+    thead th:nth-child(4){width:calc(30% + 1cm)}
+    thead th:nth-child(5){width:10%}
+    thead th:nth-child(6){width:6%}
+    thead th:nth-child(7){width:12%}
+
+    td input[type="text"]{width:100%; overflow:hidden; text-overflow:ellipsis}
+
+    .st-gt60 { background:#ffeaea }
+    .st-gt30 { background:#fff9e0 }
+    .st-lt30 { background:#eafaea }
+
+    .contact-flag{
+      display:inline-block; margin-left:6px; padding:2px 6px; border-radius:8px;
+      background:#ffe3e3; border:1px solid #ffcaca; color:#8a0b0b; font-weight:800; font-size:12px;
+      white-space:nowrap;
+    }
+
+    /* NOVO: selo de status Ativo/Inativo */
+    .status-badge{
+      display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px;
+      font-weight:800; font-size:12px; line-height:1;
+    }
+    .status-badge.ativo{ background:#eafaea; border:1px solid #bfe6c8; color:#0e5f2e }
+    .status-badge.inativo{ background:#ffeaea; border:1px solid #ffcaca; color:#8a0b0b }
+
+    .tools{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .muted{font-size:12px; color:#4b5a7f}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Clientes</h1>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <span class="badge">Alterações pendentes: <span id="count-pend">0</span></span>
+        <button id="btn-salvar-tudo" class="btn" type="button">💾 Salvar tudo</button>
+        <a class="btn" href="{{ url_for('admin') }}">← Voltar ao Painel</a>
+      </div>
+    </div>
+
+    {% with msgs = get_flashed_messages() %}
+      {% if msgs %}
+        {% for m in msgs %}
+          <div class="flash">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if kpis is defined %}
+    <div class="kpi">
+      <div class="tile">
+        <div class="title">Total de clientes <small>cadastrados</small></div>
+        <div class="num">{{ kpis.total }}</div>
+      </div>
+      <div class="tile">
+        <div class="title">Ativos <small>último uso ≤ 6 meses</small></div>
+        <div class="num">{{ kpis.ativos }}</div>
+      </div>
+      <div class="tile">
+        <div class="title">Inativos <small>último uso ≥ 6 meses ou nunca</small></div>
+        <div class="num">{{ kpis.inativos }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="tools">
+        <a class="btn" id="btn-exportar" href="{{ url_for('exportar_clientes') }}" target="_blank" rel="noopener">⬇️ Exportar XLSX</a>
+        <form id="form-import" method="POST" action="{{ url_for('importar_clientes') }}" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center;">
+          <input type="file" id="arquivo-xlsx" name="arquivo" accept=".xlsx" required>
+          <button class="btn" type="submit">⬆️ Importar XLSX</button>
+        </form>
+        <span class="muted">Formato: <b>Nome, Telefone, Bairro, Endereco</b> (ID opcional para atualizar).</span>
+      </div>
+      <div id="import-log" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; color:#003399">Cadastrar novo cliente</h3>
+      <form method="POST" action="{{ url_for('clientes') }}" id="form-create">
+        <div class="row-4">
+          <div>
+            <label for="nome">Nome *</label>
+            <input id="nome" name="nome" type="text" required placeholder="Ex.: Digite o nome do cliente">
+          </div>
+          <div>
+            <label for="telefone">Telefone</label>
+            <input id="telefone" name="telefone" type="text" placeholder="Digite o número do cliente" class="tel">
+          </div>
+          <div>
+            <label for="bairro_origem">Bairro de origem</label>
+            <input id="bairro_origem" name="bairro_origem" type="text" placeholder="Digite o bairro do cliente">
+          </div>
+          <div>
+            <label for="endereco">Endereço (opcional)</label>
+            <input id="endereco" name="endereco" type="text" placeholder="Rua, nº, complemento…">
+          </div>
+        </div>
+        <button class="btn submit" type="submit">Cadastrar Cliente</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="searchbar">
+        <label for="filtro" style="margin:0">Filtro:</label>
+        <input id="filtro" type="text" placeholder="Filtrar por nome, telefone, bairro ou endereço…">
+        <div style="display:flex; gap:6px; flex-wrap:wrap">
+          <button type="button" class="btn-small" id="sort-mais">Mais pedidos</button>
+          <button type="button" class="btn-small" id="sort-menos">Menos pedidos</button>
+          <button type="button" class="btn-small" id="sort-nome">Ordenar por nome</button>
+          <button type="button" class="btn-small" id="filtro-ate-30">Até 30 dias</button>
+          <button type="button" class="btn-small" id="filtro-ate-60">Até 60 dias</button>
+          <!-- NOVOS filtros -->
+          <button type="button" class="btn-small" id="filtro-ativos">Somente Ativos</button>
+          <button type="button" class="btn-small" id="filtro-inativos">Somente Inativos</button>
+          <button type="button" class="btn-small" id="limpar">Limpar filtros/ordenação</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table id="tabela">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Telefone</th>
+            <th>Bairro</th>
+            <th>Endereço</th>
+            <th>Último uso</th>
+            <th>Total</th>
+            <th style="text-align:center">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-clientes">
+          {% for cl in clientes %}
+          <tr data-id="{{ cl.id }}" data-ultimo="{{ cl.ultimo_ymd or '' }}" data-total="{{ cl.total_pedidos }}">
+            <form method="POST" action="{{ url_for('editar_cliente', id=cl.id) }}" class="row-form">
+              <td><input type="text" name="nome" value="{{ cl.nome }}" title="{{ cl.nome }}" required class="dirty-watch"></td>
+              <td><input type="text" name="telefone" value="{{ cl.telefone or '' }}" title="{{ cl.telefone or '' }}" class="tel dirty-watch"></td>
+              <td><input type="text" name="bairro_origem" value="{{ cl.bairro_origem or '' }}" title="{{ cl.bairro_origem or '' }}" class="dirty-watch"></td>
+              <td><input type="text" name="endereco" value="{{ cl.endereco or '' }}" title="{{ cl.endereco or '' }}" class="dirty-watch"></td>
+              <td class="ultimo-uso-cell">—</td>
+              <td class="total-cell" style="text-align:center">{{ cl.total_pedidos }}</td>
+              <td class="actions">
+                <button class="btn-small btn-save" type="submit" title="Salvar">Salvar</button>
+                <button class="btn-small btn-del btn-excluir" type="button" title="Excluir">Excluir</button>
+              </td>
+            </form>
+            <form method="POST" action="{{ url_for('excluir_cliente', id=cl.id) }}" style="display:none" class="form-del"></form>
+          </tr>
+          {% endfor %}
+          {% if not clientes or clientes|length == 0 %}
+            <tr><td colspan="7">Nenhum cliente cadastrado.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Utils ----------
+    function norm(str){
+      return (str || '').toString()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .toLowerCase().trim();
+    }
+    function onlyDigits(str){ return (str || '').toString().replace(/\D/g,''); }
+
+    function parseYMD(s){
+      if(!s) return null;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if(!m) return null;
+      return new Date(+m[1], +m[2]-1, +m[3]); // local date
+    }
+    function daysSince(date){
+      if(!date) return null;
+      const a = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const b = new Date(); const t = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+      return Math.floor((t - a) / (1000*60*60*24));
+    }
+    function fmtDateBR(date){
+      if(!date) return '—';
+      return date.toLocaleDateString('pt-BR');
+    }
+
+    const filtro = document.getElementById('filtro');
+    const tbody  = document.getElementById('tbody-clientes');
+    const btnSalvarTudo = document.getElementById('btn-salvar-tudo');
+    const countPend = document.getElementById('count-pend');
+    const importForm = document.getElementById('form-import');
+    const importFile = document.getElementById('arquivo-xlsx');
+    const importLog  = document.getElementById('import-log');
+
+    // ---------- Hidrata (cores + data + status) ----------
+    function hydrateRow(tr){
+      const ymd = tr.dataset.ultimo || '';
+      const dt  = parseYMD(ymd);
+      const dias = dt ? daysSince(dt) : null;
+
+      const cell = tr.querySelector('.ultimo-uso-cell');
+      cell.textContent = dt ? fmtDateBR(dt) : '—';
+      cell.title = dt ? fmtDateBR(dt) : '';
+
+      // Remove selo anterior e classes
+      const oldFlag = cell.querySelector('.contact-flag');
+      if (oldFlag) oldFlag.remove();
+      const oldStatus = cell.querySelector('.status-badge');
+      if (oldStatus) oldStatus.remove();
+      tr.classList.remove('st-gt60','st-gt30','st-lt30');
+
+      // Cores 30/60
+      if(dias != null){
+        if(dias > 60){
+          tr.classList.add('st-gt60');
+          const flag = document.createElement('span');
+          flag.className = 'contact-flag';
+          flag.textContent = 'Entrar em contato';
+          cell.appendChild(flag);
+        } else if(dias > 30){
+          tr.classList.add('st-gt30');
+        } else {
+          tr.classList.add('st-lt30');
+        }
+      }
+
+      // Status Ativo/Inativo (≤180 dias é ativo)
+      let status = 'inativo';
+      if (dias != null && dias <= 180) status = 'ativo';
+      tr.dataset.status = status;
+
+      const sb = document.createElement('span');
+      sb.className = 'status-badge ' + status;
+      sb.textContent = status === 'ativo' ? 'Ativo' : 'Inativo';
+      cell.appendChild(sb);
+    }
+    [...tbody.rows].forEach(hydrateRow);
+
+    // ---------- Filtro texto ----------
+    function aplicaFiltro(){
+      const termo = filtro?.value || '';
+      const termoNorm = norm(termo);
+      const termoDigits = onlyDigits(termo);
+
+      [...tbody.rows].forEach(tr => {
+        const nome    = norm(tr.querySelector('input[name="nome"]')?.value);
+        const tel     = onlyDigits(tr.querySelector('input[name="telefone"]')?.value);
+        const bairro  = norm(tr.querySelector('input[name="bairro_origem"]')?.value);
+        const ender   = norm(tr.querySelector('input[name="endereco"]')?.value);
+
+        const match =
+          (!termoNorm && !termoDigits) ||
+          nome.includes(termoNorm) || bairro.includes(termoNorm) || ender.includes(termoNorm) ||
+          (termoDigits && tel.includes(termoDigits));
+
+        tr.style.display = match ? '' : 'none';
+      });
+    }
+    filtro?.addEventListener('input', aplicaFiltro);
+
+    // ---------- Ordenações ----------
+    function sortBy(getKey, desc=false){
+      const rows = [...tbody.rows];
+      rows.sort((a,b) => {
+        const ka = getKey(a), kb = getKey(b);
+        if(ka == null && kb == null) return 0;
+        if(ka == null) return 1;
+        if(kb == null) return -1;
+        if(ka < kb) return desc ? 1 : -1;
+        if(ka > kb) return desc ? -1 : 1;
+        return 0;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    }
+    document.getElementById('sort-mais')?.addEventListener('click', () =>
+      sortBy(tr => parseInt(tr.dataset.total || '0',10), true)
+    );
+    document.getElementById('sort-menos')?.addEventListener('click', () =>
+      sortBy(tr => parseInt(tr.dataset.total || '0',10), false)
+    );
+    document.getElementById('sort-nome')?.addEventListener('click', () =>
+      sortBy(tr => norm(tr.querySelector('input[name="nome"]')?.value))
+    );
+
+    // Até 30 e 60 dias (inclui quem tem data e está dentro do limite)
+    document.getElementById('filtro-ate-30')?.addEventListener('click', () => {
+      [...tbody.rows].forEach(tr => {
+        const dt = parseYMD(tr.dataset.ultimo || '');
+        const dias = dt ? daysSince(dt) : null;
+        tr.style.display = (dias != null && dias <= 30) ? '' : 'none';
+      });
+    });
+    document.getElementById('filtro-ate-60')?.addEventListener('click', () => {
+      [...tbody.rows].forEach(tr => {
+        const dt = parseYMD(tr.dataset.ultimo || '');
+        const dias = dt ? daysSince(dt) : null;
+        tr.style.display = (dias != null && dias <= 60) ? '' : 'none';
+      });
+    });
+
+    // NOVOS filtros: Ativos/Inativos
+    document.getElementById('filtro-ativos')?.addEventListener('click', () => {
+      [...tbody.rows].forEach(tr => {
+        tr.style.display = (tr.dataset.status === 'ativo') ? '' : 'none';
+      });
+    });
+    document.getElementById('filtro-inativos')?.addEventListener('click', () => {
+      [...tbody.rows].forEach(tr => {
+        tr.style.display = (tr.dataset.status === 'inativo') ? '' : 'none';
+      });
+    });
+
+    document.getElementById('limpar')?.addEventListener('click', () => {
+      [...tbody.rows].forEach(tr => tr.style.display = '');
+      filtro.value = '';
+    });
+
+    // ---------- Máscara telefone ----------
+    function onlyDigits2(s){ return (s||'').replace(/\D/g,''); }
+    function maskTel(v){
+      const d = onlyDigits2(v).slice(0,11);
+      if(d.length <= 2) return `(${d}`;
+      if(d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+      if(d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+      return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+    }
+    function applyMaskTelOn(el){
+      el.addEventListener('input', e => {
+        const pos = e.target.selectionStart;
+        const old = e.target.value;
+        e.target.value = maskTel(e.target.value);
+        const diff = e.target.value.length - old.length;
+        const newPos = Math.max(0,(pos+diff));
+        try{ e.target.setSelectionRange(newPos, newPos); }catch(_){}
+      });
+    }
+    document.querySelectorAll('input.tel').forEach(applyMaskTelOn);
+    const telCreate = document.getElementById('telefone'); if(telCreate) applyMaskTelOn(telCreate);
+
+    // ---------- Title completo ----------
+    document.querySelectorAll('#tbody-clientes input[type="text"]').forEach(inp=>{
+      inp.addEventListener('input', ()=> { inp.title = inp.value; });
+    });
+
+    // ---------- Dirty tracking ----------
+    const dirtyMap = new Set();
+    function markDirty(tr, yes){
+      const id = tr.dataset.id;
+      if(!id) return;
+      if(yes) dirtyMap.add(id); else dirtyMap.delete(id);
+      countPend.textContent = dirtyMap.size;
+    }
+    document.querySelectorAll('#tbody-clientes tr').forEach(tr => {
+      tr.querySelectorAll('input.dirty-watch').forEach(inp => {
+        const original = inp.value; inp.dataset._orig = original;
+        inp.addEventListener('input', () => {
+          const anyChanged = [...tr.querySelectorAll('input.dirty-watch')].some(i => i.value !== i.dataset._orig);
+          markDirty(tr, anyChanged);
+        });
+      });
+    });
+    function clearDirty(tr){
+      tr.querySelectorAll('input.dirty-watch').forEach(inp => { inp.dataset._orig = inp.value; });
+      markDirty(tr, false);
+    }
+
+    // ---------- Salvar 1 linha (AJAX) ----------
+    document.querySelectorAll('.row-form').forEach(form => {
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const tr = form.closest('tr');
+        const url = form.getAttribute('action');
+        const fd = new FormData(form);
+
+        try {
+          const res = await fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With':'fetch' }});
+          if(!res.ok) throw new Error('Falha ao salvar');
+
+          let data = null;
+          try { data = await res.json(); } catch(_) {}
+          if (data && typeof data === 'object'){
+            if ('ultimo_uso' in data) tr.dataset.ultimo = data.ultimo_uso || '';
+            if ('total_pedidos' in data){
+              tr.dataset.total = data.total_pedidos;
+              const tc = tr.querySelector('.total-cell'); if(tc) tc.textContent = data.total_pedidos;
+            }
+          }
+          // recalcula selo/status
+          hydrateRow(tr);
+          clearDirty(tr);
+
+          const btn = form.querySelector('.btn-save');
+          const oldTxt = btn.textContent; btn.textContent = 'Salvo!';
+          setTimeout(()=> btn.textContent = oldTxt, 1200);
+        } catch (e) {
+          alert('Erro ao salvar este cliente.');
+        }
+      });
+    });
+
+    // ---------- Salvar tudo ----------
+    btnSalvarTudo?.addEventListener('click', async () => {
+      const rowsChanged = [...tbody.rows].filter(tr => dirtyMap.has(tr.dataset.id));
+      if(rowsChanged.length === 0){ alert('Nada para salvar.'); return; }
+
+      for(const tr of rowsChanged){
+        const form = tr.querySelector('.row-form');
+        if(!form) continue;
+        const url = form.getAttribute('action');
+        const fd  = new FormData(form);
+        try{
+          const res = await fetch(url, { method:'POST', body:fd, headers:{'X-Requested-With':'fetch'} });
+          if(!res.ok) throw new Error();
+          let data = null; try { data = await res.json(); } catch(_){ }
+          if (data && typeof data === 'object'){
+            if ('ultimo_uso' in data) tr.dataset.ultimo = data.ultimo_uso || '';
+            if ('total_pedidos' in data){
+              tr.dataset.total = data.total_pedidos;
+              const tc = tr.querySelector('.total-cell'); if(tc) tc.textContent = data.total_pedidos;
+            }
+          }
+          hydrateRow(tr);
+          clearDirty(tr);
+        }catch(e){
+          console.warn('Falha ao salvar linha', tr.dataset.id);
+        }
+      }
+      alert('Salvamento concluído.');
+    });
+
+    // ---------- Excluir ----------
+    document.querySelectorAll('.btn-excluir').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const tr = e.target.closest('tr');
+        const name = tr.querySelector('input[name="nome"]').value || 'o cliente';
+        if(!confirm(`Excluir ${name}?`)) return;
+        const formDel = tr.querySelector('.form-del'); if(!formDel) return;
+        try{
+          const res = await fetch(formDel.getAttribute('action'), { method:'POST', headers:{'X-Requested-With':'fetch'} });
+          if(!res.ok) throw new Error();
+          tr.remove();
+          markDirty(tr, false);
+        }catch(_){ alert('Não foi possível excluir.'); }
+      });
+    });
+
+    // ---------- Importar XLSX ----------
+    importForm?.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const file = importFile?.files?.[0];
+      if(!file){ alert('Selecione um arquivo .xlsx'); return; }
+      const fd = new FormData(importForm);
+      importLog.textContent = 'Enviando arquivo…';
+
+      try{
+        const res = await fetch(importForm.getAttribute('action'), { method:'POST', body:fd, headers:{'X-Requested-With':'fetch'} });
+        if(!res.ok) throw new Error('Falha no upload');
+        let data = null; try{ data = await res.json(); }catch(_){ }
+        if(data && data.ok){
+          const add = data.adicionados ?? 0, upd = data.atualizados ?? 0, err = data.erros ?? 0;
+          importLog.innerHTML = `Importação concluída: <b>${add}</b> adicionados, <b>${upd}</b> atualizados, <b>${err}</b> erros.`;
+        } else {
+          importLog.textContent = 'Importação finalizada.';
+        }
+      }catch(e){
+        importLog.textContent = 'Erro ao importar o arquivo.';
+      }
+    });
+  </script>
+</body>
+</html>

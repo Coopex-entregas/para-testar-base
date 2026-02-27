@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agendar Entrega - Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f4ff;
+      color: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #0033aa;
+      margin-bottom: 20px;
+    }
+    form {
+      background-color: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="number"],
+    select,
+    input[type="datetime-local"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0033aa;
+      color: white;
+      padding: 12px;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #002b88; }
+    a {
+      text-decoration: none;
+      color: #0033aa;
+      margin-bottom: 20px;
+      display: inline-block;
+    }
+    a:hover { text-decoration: underline; }
+    small.hint { display:block; margin-top:-10px; margin-bottom:12px; color:#555; }
+  </style>
+</head>
+<body>
+  <h1>Agendar Entrega</h1>
+  <a href="{{ url_for('admin') }}">← Voltar ao Painel</a>
+
+  <form method="POST" action="{{ url_for('agendar_entrega') }}">
+    <!-- 1) Selecionar cliente cadastrado (opcional) -->
+    <label>Selecionar Cliente (cadastrado) — opcional:</label>
+    <select id="cliente-select">
+      <option value="">-- Selecione um cliente cadastrado --</option>
+      {% if clientes %}
+        {% for cl in clientes %}
+          <option
+            value="{{ cl.id }}"
+            data-nome="{{ cl.nome|e }}"
+            data-bairro="{{ cl.bairro_origem or '' }}"
+            data-telefone="{{ cl.telefone or '' }}"
+          >
+            {{ cl.nome }}
+          </option>
+        {% endfor %}
+      {% endif %}
+    </select>
+    <small class="hint">
+      Se selecionar acima, o nome e o bairro serão preenchidos. Você ainda pode ajustar manualmente.
+    </small>
+
+    <!-- HIDDEN QUE VAI PRO BACKEND COM O ID DO CLIENTE -->
+    <input type="hidden" id="cliente_id" name="cliente_id" />
+
+    <!-- 2) Campo manual (este é o que vai no POST como 'cliente') -->
+    <label>Nome do Cliente (manual):</label>
+    <input id="cliente-input" type="text" name="cliente" placeholder="Digite o nome do cliente" required />
+
+    <label>Bairro:</label>
+    <input id="bairro" type="text" name="bairro" required/>
+
+    <label>Valor (R$):</label>
+    <input type="number" name="valor" step="0.01" min="0" required/>
+
+    <label>Data e hora da entrega:</label>
+    <input type="datetime-local" name="data" required/>
+
+    <label>Status Pagamento:</label>
+    <select name="status_pagamento">
+      <option value="Pendente">Pendente</option>
+      <option value="Pago">Pago</option>
+    </select>
+
+    <label>Status Entrega:</label>
+    <select name="status_entrega">
+      <option value="pendente">Pendente</option>
+      <option value="recebido">Entregue</option>
+    </select>
+
+    <label>Forma de Pagamento:</label>
+    <select name="pagamento" required>
+      <option value="Dinheiro">Dinheiro</option>
+      <option value="Pix">Pix</option>
+      <option value="Pix (Cooperativa)">Pix (Cooperativa)</option>
+      <option value="Comanda">Comanda</option>
+      <!-- NOVO: opção para usar crédito automático do cliente -->
+      <option value="Crédito auto">Crédito (auto)</option>
+    </select>
+
+    <button type="submit">Agendar</button>
+  </form>
+
+  <script>
+    (function () {
+      const sel = document.getElementById('cliente-select');
+      const inpNome = document.getElementById('cliente-input');
+      const inpBairro = document.getElementById('bairro');
+      const hiddenId = document.getElementById('cliente_id');
+
+      // Ao escolher um cliente cadastrado, preenche os campos manuais e o ID
+      sel.addEventListener('change', function () {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) {
+          // limpou a seleção
+          hiddenId.value = '';
+          return;
+        }
+
+        const id = opt.value || '';
+        const nome = opt.getAttribute('data-nome') || opt.textContent || '';
+        const bairro = opt.getAttribute('data-bairro') || '';
+
+        if (nome) inpNome.value = nome;
+        if (bairro && !inpBairro.value) inpBairro.value = bairro;
+        hiddenId.value = id;
+      });
+
+      // Se o usuário digitar manualmente, "desvincula" a seleção e limpa o ID
+      inpNome.addEventListener('input', function () {
+        if (sel.value) sel.value = '';
+        if (hiddenId.value) hiddenId.value = '';
+      });
+    })();
+  </script>
+</body>
+</html>

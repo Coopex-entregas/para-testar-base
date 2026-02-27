@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>Entrar · Kratos System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="{{ url_for('static', filename='logo_kratos.png') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root{
+      --royal:#2747d9; --royal-2:#3b61e3; --green:#23bb75; --danger:#c1121f;
+      --glass:rgba(255,255,255,.32); --glass-border:rgba(70,90,255,.13);
+      --shadow:0 6px 36px 0 rgba(39,71,217,.13);
+    }
+    body{
+      min-height:100vh;
+      background:linear-gradient(120deg,#f2f6ff 0%,#d2e1ff 100%);
+      font-family:'Roboto',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      display:flex;align-items:center;justify-content:center;padding:16px
+    }
+    .glass-card{
+      max-width:440px;width:100%;border-radius:24px;background:var(--glass);
+      backdrop-filter:blur(22px) saturate(130%);-webkit-backdrop-filter:blur(22px) saturate(130%);
+      border:1.8px solid var(--glass-border);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column
+    }
+    .card-top{
+      background:linear-gradient(135deg,var(--royal),var(--royal-2));color:#fff;text-align:center;
+      padding:38px 24px 30px;border-bottom-left-radius:50% 26px;border-bottom-right-radius:50% 26px;box-shadow:0 8px 22px #2747d91b
+    }
+    .brand{display:flex;flex-direction:column;align-items:center;gap:8px}
+    .brand-logo{
+      width:92px;height:92px;border-radius:50%;object-fit:contain;border:4px solid #fff;background:transparent;box-shadow:0 3px 24px #2747d950
+    }
+    .brand-title{font-family:'Orbitron',sans-serif;font-size:1.23rem;letter-spacing:2px;font-weight:600;text-shadow:0 2px 18px #13246e30}
+    .credentials-vault{
+      margin:16px auto 0;width:82%;min-height:54px;background:rgba(255,255,255,.44);border:2px solid var(--royal-2);
+      border-radius:16px;box-shadow:0 3px 24px #3b61e325;display:flex;align-items:center;gap:15px;padding:10px 16px 10px 14px
+    }
+    .vault-icon{font-size:1.5rem;color:var(--royal-2);opacity:.85}
+    .vault-text{font-size:1.02rem;color:#f7f9ff;font-weight:600;line-height:1.2}
+    .vault-mini{display:block;font-size:.9rem;color:#e9edff;opacity:.92;font-weight:400}
+    .card-body{padding:30px 28px 22px}
+    .btn-royal{
+      background:var(--royal);color:#fff;font-weight:600;border-radius:10px;box-shadow:0 3px 16px #3b61e313
+    }
+    .btn-royal:hover{background:var(--royal-2);color:#fff;box-shadow:0 6px 22px #3b61e337}
+    .form-control:focus{border-color:var(--royal-2);box-shadow:0 0 0 2px #3b61e344}
+    .link-swap{display:block;text-align:center;margin-top:14px;font-weight:600;color:var(--royal)}
+    .link-swap:hover{text-decoration:underline;color:var(--royal-2)}
+    .marca-sistema{color:#1a1a1a;text-align:center;margin:16px auto 8px;font-size:1.04rem;font-weight:500}
+    .erro{color:#c1121f;background:#ffe8ea;border:1px solid #ffccd2;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+    .ok{color:#11693a;background:#eafff2;border:1px solid #c9f2da;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+    .hidden{display:none !important}
+    .meter{height:8px;background:#e9efff;border-radius:999px;overflow:hidden}
+    .meter > i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff6b6b,#ffd166,#6bcb77);transition:width .25s}
+    .mini{font-size:.9rem;color:#3b3b3b}
+    @media(max-width:550px){.brand-logo{width:70px;height:70px}}
+  </style>
+</head>
+<body>
+  <div class="glass-card" id="cardRoot">
+    <div class="card-top">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='logo_kratos.png') }}" class="brand-logo" alt="Kratos System">
+        <div class="brand-title">Kratos System</div>
+      </div>
+      <div class="credentials-vault">
+        <span class="vault-icon"><i class="bi bi-shield-lock-fill"></i></span>
+        <span class="vault-text">
+          Acesso Seguro
+          <span class="vault-mini">Admin, Cooperado e Cliente</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- FLASH -->
+    <div class="card-body pt-3">
+      {% with messages = get_flashed_messages(category_filter=['error']) %}
+        {% if messages %}
+          <div class="erro"><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+      {% with messages = get_flashed_messages(category_filter=['ok']) %}
+        {% if messages %}
+          <div class="ok"><i class="bi bi-check2-circle me-1"></i> {{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- LOGIN (Admin / Cooperado / Cliente) -->
+    <div class="card-body" id="paneLogin">
+      <h5 class="mb-1 fw-bold">Entrar</h5>
+      <p class="text-muted mb-3" style="font-size:.9rem">
+        Use seu <strong>usuário</strong> (admin / cooperado) ou seu
+        <strong>usuário / e-mail de cliente</strong>.
+      </p>
+      <form method="POST" action="{{ url_for('login') }}" class="needs-validation" novalidate autocomplete="off">
+        <input type="hidden" name="next" value="{{ url_for('meu_credito') }}">
+        <div class="mb-3">
+          <label class="form-label" for="usuario">Usuário ou e-mail</label>
+          <input class="form-control form-control-lg" id="usuario" name="usuario" required autocomplete="username" placeholder="Digite seu usuário ou e-mail">
+          <div class="invalid-feedback">Informe seu usuário ou e-mail.</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="senha">Senha</label>
+          <div class="input-group input-group-lg">
+            <input type="password" class="form-control" id="senha" name="senha" required autocomplete="current-password" placeholder="Digite sua senha">
+            <button class="btn btn-outline-secondary" type="button" id="togglePassLogin" title="Mostrar/ocultar senha">
+              <i class="bi bi-eye"></i>
+            </button>
+            <div class="invalid-feedback">Informe sua senha.</div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-1">
+          <a href="{{ url_for('cliente_esqueci_senha') }}" style="font-size:.86rem;color:#2747d9;text-decoration:none">
+            <i class="bi bi-question-circle me-1"></i>Esqueceu a senha?
+          </a>
+        </div>
+
+        <button class="btn btn-royal w-100 btn-lg mt-4" type="submit">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+        </button>
+      </form>
+
+      <a href="#primeiro" class="link-swap" id="goSignup"><i class="bi bi-person-plus me-1"></i> Primeiro acesso do cliente? Cadastre-se</a>
+      <div class="marca-sistema">© <span id="ano"></span> Criado por — Kratos System</div>
+    </div>
+
+    <!-- PRIMEIRO ACESSO (CLIENTE) -->
+    <div class="card-body hidden" id="paneSignup">
+      <h5 class="mb-3 fw-bold">Primeiro acesso do Cliente</h5>
+      <form method="POST" action="{{ url_for('cliente_primeiro_acesso') }}" class="needs-validation" novalidate autocomplete="off" id="formSignup">
+        <input type="hidden" name="perfil" value="cliente">
+        <input type="hidden" name="next" value="{{ url_for('meu_credito') }}">
+
+        <div class="mb-3">
+          <label class="form-label" for="nome">Nome completo</label>
+          <input class="form-control form-control-lg" id="nome" name="nome" required placeholder="Ex.: Maria Silva">
+          <div class="invalid-feedback">Informe seu nome.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="email">E-mail</label>
+          <input class="form-control form-control-lg" id="email" name="email" required placeholder="Seu e-mail (Gmail, Outlook, etc.)" inputmode="email">
+          <div class="invalid-feedback">Informe um e-mail válido.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="telefone">Telefone (WhatsApp)</label>
+          <input class="form-control form-control-lg" id="telefone" name="telefone" required placeholder="(84) 9 9999-9999" inputmode="tel">
+          <div class="invalid-feedback">Informe um telefone válido.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="usuario_cad">Nome de usuário</label>
+          <input class="form-control form-control-lg" id="usuario_cad" name="usuario" required placeholder="Crie seu usuário de acesso">
+          <div class="invalid-feedback">Crie um usuário.</div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label" for="senha_cad">Senha</label>
+          <div class="input-group input-group-lg">
+            <input type="password" class="form-control" id="senha_cad" name="senha" required placeholder="Crie sua senha" minlength="6">
+            <button class="btn btn-outline-secondary" type="button" id="togglePassSignup1" title="Mostrar/ocultar senha">
+              <i class="bi bi-eye"></i>
+            </button>
+            <div class="invalid-feedback">Crie uma senha (mínimo 6 caracteres).</div>
+          </div>
+          <div class="meter mt-2" aria-hidden="true"><i id="meterBar"></i></div>
+          <small class="mini" id="meterTxt">Força da senha</small>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label" for="senha_conf">Confirmar senha</label>
+          <div class="input-group input-group-lg">
+            <input type="password" class="form-control" id="senha_conf" name="senha_conf" required placeholder="Repita a senha" minlength="6">
+            <button class="btn btn-outline-secondary" type="button" id="togglePassSignup2" title="Mostrar/ocultar senha">
+              <i class="bi bi-eye"></i>
+            </button>
+            <div class="invalid-feedback">As senhas não coincidem.</div>
+          </div>
+        </div>
+
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" value="1" id="aceite" required>
+          <label class="form-check-label" for="aceite">
+            Li e aceito os termos de uso e privacidade.
+          </label>
+          <div class="invalid-feedback">Você precisa aceitar os termos.</div>
+        </div>
+
+        <button class="btn btn-royal w-100 btn-lg mt-4" type="submit">
+          <i class="bi bi-person-check me-1"></i> Criar conta
+        </button>
+      </form>
+
+      <a href="#login" class="link-swap" id="goLogin"><i class="bi bi-arrow-left-circle me-1"></i> Já tenho conta</a>
+      <div class="marca-sistema">© <span id="ano2"></span> Criado por — Kratos System</div>
+    </div>
+  </div>
+
+  <noscript>
+    <style>.hidden{display:block!important}</style>
+    <div class="container mt-3">
+      <div class="alert alert-danger">Ative o JavaScript para usar o primeiro acesso.</div>
+    </div>
+  </noscript>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // util
+    const byId = (id)=>document.getElementById(id);
+    const show = (el)=>el.classList.remove('hidden');
+    const hide = (el)=>el.classList.add('hidden');
+
+    // referências
+    const paneLogin  = byId('paneLogin');
+    const paneSignup = byId('paneSignup');
+
+    // troca de painéis
+    const openSignup = ()=>{
+      hide(paneLogin); show(paneSignup);
+      history.replaceState(null,'', '#primeiro');
+    };
+    const openLogin = ()=>{
+      hide(paneSignup); show(paneLogin);
+      history.replaceState(null,'', '#login');
+    };
+
+    byId('goSignup').addEventListener('click', (e)=>{ e.preventDefault(); openSignup(); });
+    byId('goLogin').addEventListener('click', (e)=>{ e.preventDefault(); openLogin(); });
+
+    // auto-abertura pelo hash ou query (?primeiro=1 | ?signup=1)
+    (function(){
+      const url = new URL(location.href);
+      const q = url.searchParams;
+      if (location.hash === '#primeiro' || q.get('primeiro') === '1' || q.get('signup') === '1') {
+        openSignup();
+      }
+    })();
+
+    // validação bootstrap simples
+    document.querySelectorAll('form.needs-validation').forEach(form=>{
+      form.addEventListener('submit', (e)=>{
+        if(!form.checkValidity()){
+          e.preventDefault(); e.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      });
+    });
+
+    // máscara telefone (BR)
+    const tel = byId('telefone');
+    const maskBR = v => v.replace(/\D/g,'')
+      .replace(/^(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d{4})$/, '$1-$2');
+    tel.addEventListener('input', ()=>{ tel.value = maskBR(tel.value); });
+
+    // ver/ocultar senhas
+    const toggle = (btnId, inputId)=>{
+      byId(btnId).addEventListener('click', (ev)=>{
+        const i = byId(inputId);
+        const isPwd = i.type === 'password';
+        i.type = isPwd ? 'text' : 'password';
+        ev.currentTarget.innerHTML = isPwd ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        i.focus();
+      });
+    };
+    toggle('togglePassLogin','senha');
+    toggle('togglePassSignup1','senha_cad');
+    toggle('togglePassSignup2','senha_conf');
+
+    // força da senha
+    const meterBar = byId('meterBar');
+    const meterTxt = byId('meterTxt');
+    const senhaCad = byId('senha_cad');
+    senhaCad.addEventListener('input', ()=>{
+      const v = senhaCad.value;
+      let score = 0;
+      if (v.length >= 6) score++;
+      if (/[A-Z]/.test(v)) score++;
+      if (/[a-z]/.test(v)) score++;
+      if (/\d/.test(v)) score++;
+      if (/[^A-Za-z0-9]/.test(v)) score++;
+      const pct = [0,20,40,60,80,100][score];
+      meterBar.style.width = (pct||0) + '%';
+      meterTxt.textContent = ['Muito fraca','Fraca','Ok','Boa','Forte','Excelente'][score] || 'Força da senha';
+    });
+
+    // confirma senha
+    const senhaConf = byId('senha_conf');
+    const formSignup = byId('formSignup');
+    formSignup.addEventListener('submit', (e)=>{
+      if(senhaCad.value !== senhaConf.value){
+        e.preventDefault(); e.stopPropagation();
+        senhaConf.setCustomValidity('Senhas diferentes');
+        formSignup.classList.add('was-validated');
+      }else{
+        senhaConf.setCustomValidity('');
+      }
+    });
+
+    // ano automático
+    const ano = new Date().getFullYear();
+    const a1 = byId('ano'); if (a1) a1.textContent = ano;
+    const a2 = byId('ano2'); if (a2) a2.textContent = ano;
+  </script>
+</body>
+</html>

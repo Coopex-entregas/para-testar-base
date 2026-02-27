@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crédito de Clientes — Supervisão | Coopex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='logo_kratos.png') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --royal:#0033cc; --royal-2:#2750ff;
+      --ink:#0a1b3f; --muted:#cfe0ff; --bg:#f6f8ff; --card:#ffffff;
+      --line:#e3e9ff; --line-dark:#cfd9ff; --good:#10b981; --bad:#ef4444;
+      --r:14px; --shadow:0 8px 30px rgba(0,30,130,.08); --shadow-2:0 10px 40px rgba(0,30,130,.12);
+      --primary-border:#2f4de6;
+    }
+    body.dark{
+      --bg:#050814; --card:#0c1222; --ink:#e7edf9; --line:#1d2636; --line-dark:#2b3b59;
+      --muted:#2b3b59;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--ink);
+    }
+
+    header{
+      position:sticky;top:0;z-index:100;
+      background:linear-gradient(90deg,var(--royal) 0%, #2b54ff 60%, #7ea0ff 130%);
+      color:#fff;box-shadow:var(--shadow-2)
+    }
+    .topbar{
+      padding:14px 18px;
+      display:flex;align-items:center;gap:12px;flex-wrap:wrap
+    }
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900}
+    .brand img{
+      width:36px;height:36px;border-radius:10px;
+      background:#fff;border:2px solid #eaf0ff;object-fit:contain
+    }
+    .brand span{font-size:1.02rem;text-shadow:0 2px 18px rgba(0,0,0,.2)}
+    .spacer{flex:1}
+    .back-admin{
+      color:#2347c7;
+      background:#fff;
+      border:1.5px solid var(--primary-border);
+      border-radius:12px;
+      padding:9px 14px;
+      font-weight:800;
+      text-decoration:none;
+      font-size:.9rem;
+    }
+    .theme-toggle{
+      color:#fff;
+      background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.4);
+      border-radius:12px;
+      padding:9px 14px;
+      font-weight:800;
+      cursor:pointer;
+      font-size:.9rem;
+    }
+    .logout{
+      color:#fff;
+      background:#c1121f;
+      border:none;
+      border-radius:24px;
+      padding:9px 16px;
+      font-weight:800;
+      text-decoration:none;
+      font-size:.9rem;
+    }
+
+    .wrap{
+      max-width:1160px;
+      margin:16px auto 24px;
+      padding:0 14px;
+      display:grid;
+      grid-template-columns:340px 1fr;
+      gap:18px;
+    }
+    @media (max-width:1000px){
+      .wrap{grid-template-columns:1fr}
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+    }
+    .card .body{padding:14px 14px 16px}
+    .card h2,.card h3{margin:0 0 10px}
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      background:linear-gradient(90deg,var(--royal) 0%, var(--royal-2) 100%);
+      color:#fff;
+      border:none;
+      border-radius:12px;
+      padding:10px 14px;
+      font-weight:800;
+      text-decoration:none;
+      box-shadow:0 6px 16px rgba(0,50,200,.18);
+      cursor:pointer;
+      font-size:.9rem;
+      white-space:nowrap;
+    }
+    .btn.alt{
+      background:#fff;
+      color:#2347c7;
+      border:1.5px solid var(--primary-border);
+      box-shadow:none;
+    }
+    .btn.small{
+      padding:5px 9px;
+      font-size:.78rem;
+      border-radius:10px;
+      box-shadow:none;
+    }
+    .btn.danger{
+      background:linear-gradient(90deg,#b91c1c,#ef4444);
+    }
+    .btn.block{width:100%}
+
+    label{
+      font-size:.86rem;
+      color:#28409f;
+      font-weight:800;
+      margin-bottom:4px;
+    }
+    body.dark label{color:#b9ccff}
+    select,input[type="date"],input[type="text"],input[type="number"],textarea{
+      width:100%;
+      padding:10px;
+      border-radius:12px;
+      border:1.6px solid var(--primary-border);
+      background:#fff;
+      color:var(--ink);
+      font-weight:600;
+      font-size:.9rem;
+    }
+    body.dark select,
+    body.dark input,
+    body.dark textarea{
+      background:#0b1a3a;
+      color:#e7edf9;
+      border-color:#2f4de6;
+    }
+    select:focus,input:focus,textarea:focus{
+      outline:none;
+      box-shadow:0 0 0 2px rgba(47,77,230,.25);
+    }
+
+    .column{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+    .muted{color:#5771d6;font-weight:700;font-size:.86rem}
+    body.dark .muted{color:#93b4ff}
+
+    .saldo-badge{
+      margin-top:4px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#edf3ff;
+      border:1px solid #cfdbff;
+      font-size:.8rem;
+      font-weight:800;
+      color:#2347c7;
+    }
+    body.dark .saldo-badge{
+      background:#0b1635;
+      border-color:#273b7a;
+      color:#c5d5ff;
+    }
+
+    .hint{font-size:.78rem;color:#5b6ea8}
+    body.dark .hint{color:#9fb0ff}
+
+    .sticky-actions{
+      margin-top:4px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    /* LISTA DE CLIENTES / ACORDEÃO */
+    .clientes-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:10px;
+    }
+    .cliente-item{
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,0.9);
+      overflow:hidden;
+    }
+    body.dark .cliente-item{
+      background:rgba(8,13,28,0.95);
+    }
+    .cliente-head{
+      display:flex;
+      align-items:center;
+      padding:8px 10px;
+      gap:10px;
+      cursor:pointer;
+    }
+    .cliente-head:hover{
+      background:rgba(0,51,204,0.06);
+    }
+    .cliente-name{
+      font-weight:800;
+      font-size:.9rem;
+      flex:1;
+    }
+    .pill{
+      border-radius:999px;
+      padding:4px 10px;
+      font-size:.76rem;
+      font-weight:800;
+      border:1px solid var(--line-dark);
+      background:#edf3ff;
+      color:#2347c7;
+      white-space:nowrap;
+    }
+    .pill.big{font-size:.82rem;padding:6px 12px;}
+    body.dark .pill{
+      background:#0b1635;
+      border-color:#273b7a;
+      color:#c5d5ff;
+    }
+    .pill.neg{background:#fee2e2;border-color:#fecaca;color:#b91c1c;}
+    .pill.pos{background:#dcfce7;border-color:#bbf7d0;color:#166534;}
+    .chevron{
+      width:18px;height:18px;border-radius:999px;
+      border:1px solid var(--line-dark);
+      display:flex;align-items:center;justify-content:center;
+      font-size:.7rem;
+      transform:rotate(0deg);
+      transition:transform .2s;
+    }
+    .cliente-item.open .chevron{transform:rotate(90deg);}
+
+    .cliente-body{
+      max-height:0;
+      overflow:hidden;
+      transition:max-height .25s ease;
+      border-top:1px solid var(--line);
+    }
+    .cliente-item.open .cliente-body{
+      max-height:360px;
+    }
+    .cliente-body-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:6px 10px 0 10px;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .mov-table-wrap{
+      overflow:auto;
+      max-height:320px;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12.5px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:#031a66;
+      color:#fff;
+      padding:6px 8px;
+      border-bottom:1px solid var(--line);
+      text-align:left;
+      z-index:1;
+    }
+    tbody td{
+      padding:6px 8px;
+      border-bottom:1px solid var(--line);
+      vertical-align:middle;
+    }
+    tbody tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+    body.dark tbody tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+    .money{font-weight:800}
+
+    .no-data{
+      text-align:center;
+      font-size:.82rem;
+      opacity:.75;
+      padding:10px 4px;
+    }
+
+    .top-info{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-bottom:8px;
+    }
+    .top-pills{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .search-box{
+      margin-top:6px;
+    }
+
+    .acoes-cell{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:flex-start;
+      flex-wrap:wrap;
+    }
+    .acoes-cell form{display:inline;}
+  </style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='logo_kratos.png') }}" alt="Logo"
+           onerror="this.onerror=null;this.src='https://via.placeholder.com/80x36?text=LOGO'">
+      <span>Crédito de Clientes — Supervisão</span>
+    </div>
+    <div class="spacer"></div>
+    <a class="back-admin" href="/admin?cooperado_id=todos&status_pagamento=todos">← Admin</a>
+    <button id="btnTheme" class="theme-toggle" type="button">Modo escuro</button>
+    <a class="logout" href="{{ url_for('logout') }}">Sair</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- LADO ESQUERDO: LANÇAR CRÉDITO -->
+  <section class="card">
+    <div class="body">
+      <h2>Registrar crédito</h2>
+
+      {% set selected_cliente = (cliente_id|string) if cliente_id is not none else request.args.get('cliente_id','') %}
+
+      <div id="saldoClienteBox" style="margin-bottom:10px;display:none;">
+        <span class="saldo-badge">
+          Saldo atual do cliente:
+          <span id="saldoClienteValor">R$ 0,00</span>
+        </span>
+      </div>
+
+      <form action="{{ url_for('creditos_cadastrar') }}" method="POST" id="form-credito">
+        <div class="column">
+          <label for="cliente_id">Cliente</label>
+          <select id="cliente_id" name="cliente_id" required>
+            <option value="" disabled {% if not selected_cliente %}selected{% endif %}>Selecione…</option>
+            {% for cli in clientes_form %}
+              <option value="{{ cli.id }}"
+                      data-saldo="{{ '%.2f'|format(saldos_por_cliente.get(cli.id, cli.saldo_atual or 0)) }}"
+                      {% if selected_cliente and selected_cliente|string == cli.id|string %}selected{% endif %}>
+                {{ cli.nome }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="column">
+          <label for="valor_bruto">Valor do crédito (R$)</label>
+          <input type="number" id="valor_bruto" name="valor_bruto"
+                 step="0.01" min="0" placeholder="0,00" required>
+        </div>
+
+        <div class="column">
+          <label for="motivo">Observação / motivo (opcional)</label>
+          <input type="text" id="motivo" name="motivo" maxlength="180"
+                 placeholder="Ex.: bônus fidelidade, adiantamento, ajuste, etc.">
+        </div>
+
+        <div class="column">
+          <label for="criado_em">Data do crédito</label>
+          <input type="date" id="criado_em" name="criado_em" value="">
+          <span class="hint">Se não preencher, será considerada a data de hoje.</span>
+        </div>
+
+        <!-- Mantidos apenas para compatibilidade com o backend (sempre sem desconto) -->
+        <input type="hidden" name="desconto_tipo" value="nenhum">
+        <input type="hidden" name="desconto_valor" value="0">
+
+        <div class="column">
+          <span class="muted">Resumo</span>
+          <div class="money" id="preview_valor_final">Crédito: R$ 0,00</div>
+        </div>
+
+        <div class="sticky-actions">
+          <button class="btn" type="submit">Salvar crédito</button>
+          <a class="btn alt" href="{{ url_for('creditos') }}">Limpar</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- LADO DIREITO: HISTÓRICO POR CLIENTE (ACORDEÃO) -->
+  <section class="card">
+    <div class="body">
+      <div class="top-info">
+        <h3>Histórico por cliente</h3>
+        <p class="hint">
+          Clique no nome do cliente para ver o histórico completo de
+          <strong>créditos, consumos em entregas e estornos</strong>, na ordem que aconteceram.
+        </p>
+        <div class="top-pills">
+          <span class="pill big pos">
+            Saldo total: R$
+            {{ '%.2f'|format(total_saldo or 0)|replace('.',',') }}
+          </span>
+          <span class="pill big">
+            Créditos lançados: R$
+            {{ '%.2f'|format(total_creditos or 0)|replace('.',',') }}
+          </span>
+          <span class="pill big neg">
+            Consumos: R$
+            {{ '%.2f'|format(total_consumos or 0)|replace('.',',') }}
+          </span>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <label for="searchCliente">Pesquisar cliente</label>
+        <input type="text" id="searchCliente" placeholder="Digite o nome do cliente...">
+      </div>
+
+      <div class="clientes-list" id="listaClientes">
+        {% if clientes_lista|length == 0 %}
+          <div class="no-data">Nenhum cliente com créditos ou movimentos cadastrados.</div>
+        {% else %}
+          {% for cli in clientes_lista %}
+            {% set movs_cli = movimentos_por_cliente.get(cli.id, []) %}
+            {% set saldo_cli = saldos_por_cliente.get(cli.id, cli.saldo_atual or 0) %}
+            {% set total_creditos_cli = creditos_originais_por_cliente.get(cli.id, 0) %}
+            {% set consumos_cli = consumos_por_cliente.get(cli.id, 0) %}
+
+            <div class="cliente-item" data-cliente-id="{{ cli.id }}">
+              <div class="cliente-head">
+                <div class="cliente-name">{{ cli.nome }}</div>
+                <span class="pill pos">
+                  Saldo: R$ {{ '%.2f'|format(saldo_cli)|replace('.',',') }}
+                </span>
+                <span class="pill">
+                  + R$ {{ '%.2f'|format(total_creditos_cli)|replace('.',',') }}
+                </span>
+                <span class="pill neg">
+                  − R$ {{ '%.2f'|format(consumos_cli)|replace('.',',') }}
+                </span>
+                <div class="chevron">▶</div>
+              </div>
+              <div class="cliente-body">
+                <div class="cliente-body-header">
+                  <span class="hint">
+                    Movimentos em ordem cronológica. Estorno desfaz consumo anterior.
+                  </span>
+                  <form action="{{ url_for('creditos_limpar_cliente', cliente_id=cli.id) }}"
+                        method="POST"
+                        onsubmit="return confirm('Confirma limpar TODO o histórico de créditos deste cliente? O saldo será zerado.');">
+                    <button type="submit" class="btn small danger">
+                      Limpar histórico
+                    </button>
+                  </form>
+                </div>
+                <div class="mov-table-wrap">
+                  {% if movs_cli|length == 0 %}
+                    <div class="no-data">Nenhum movimento de crédito ainda para este cliente.</div>
+                  {% else %}
+                    <table>
+                      <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Saldo antes</th>
+                        <th>Saldo depois</th>
+                        <th>Referência</th>
+                        <th>Ações</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {% for row in movs_cli %}
+                        {% set mov = row.mov %}
+                        <tr>
+                          <td>
+                            {% if mov.data %}
+                              {{ mov.data }}
+                            {% else %}
+                              —
+                            {% endif %}
+                          </td>
+                          <td>
+                            {% if mov.tipo == 'credito' %}
+                              {% if mov.referencia and 'estorno' in mov.referencia.lower() %}
+                                Estorno
+                              {% else %}
+                                Crédito
+                              {% endif %}
+                            {% elif mov.tipo == 'debito' %}
+                              Consumo
+                            {% else %}
+                              {{ mov.tipo }}
+                            {% endif %}
+                          </td>
+                          <td class="money">
+                            {% if mov.tipo == 'debito' %}-{% else %}+{% endif %}
+                            R$ {{ '%.2f'|format(mov.valor or 0)|replace('.',',') }}
+                          </td>
+                          <td>R$ {{ '%.2f'|format(row.saldo_antes)|replace('.',',') }}</td>
+                          <td class="money">R$ {{ '%.2f'|format(row.saldo_depois)|replace('.',',') }}</td>
+                          <td>{{ mov.referencia or '—' }}</td>
+                          <td>
+                            {% if mov.credito_id %}
+                              <div class="acoes-cell">
+                                <a class="btn small alt"
+                                   href="{{ url_for('creditos_editar', credito_id=mov.credito_id) }}">
+                                  Editar
+                                </a>
+                                <form action="{{ url_for('creditos_excluir', id=mov.credito_id) }}"
+                                      method="POST"
+                                      onsubmit="return confirm('Confirma excluir este crédito? Esta ação não poderá ser desfeita.');">
+                                  <button type="submit" class="btn small danger">Excluir</button>
+                                </form>
+                              </div>
+                            {% else %}
+                              —
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                      </tbody>
+                    </table>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // tema claro/escuro
+  (function(){
+    try{
+      const saved = localStorage.getItem('coopex_theme') || 'light';
+      if(saved === 'dark') document.body.classList.add('dark');
+      const btn = document.getElementById('btnTheme');
+      const sync = () => {
+        btn.textContent = document.body.classList.contains('dark')
+          ? 'Modo claro'
+          : 'Modo escuro';
+      };
+      sync();
+      btn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('coopex_theme',
+          document.body.classList.contains('dark') ? 'dark' : 'light');
+        sync();
+      });
+    }catch(e){}
+  })();
+
+  // data padrão hoje
+  (function(){
+    const input = document.getElementById('criado_em');
+    if(input && !input.value){
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      input.value = `${yyyy}-${mm}-${dd}`;
+    }
+  })();
+
+  const fmtBRL = (v)=> (new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(+v||0));
+
+  // preview valor do crédito
+  (function(){
+    const bruto = document.getElementById('valor_bruto');
+    const preview = document.getElementById('preview_valor_final');
+    if(!bruto || !preview) return;
+    function update(){
+      const v = parseFloat(bruto.value || '0');
+      preview.textContent = 'Crédito: ' + fmtBRL(v);
+    }
+    bruto.addEventListener('input', update);
+    bruto.addEventListener('blur', update);
+    update();
+  })();
+
+  // Exibir saldo atual do cliente selecionado
+  (function(){
+    const sel = document.getElementById('cliente_id');
+    const box = document.getElementById('saldoClienteBox');
+    const val = document.getElementById('saldoClienteValor');
+    if(!sel || !box || !val) return;
+
+    function updateSaldo(){
+      const opt = sel.options[sel.selectedIndex];
+      if(!opt || !opt.value){
+        box.style.display = 'none';
+        return;
+      }
+      const saldo = parseFloat(opt.getAttribute('data-saldo') || '0');
+      val.textContent = fmtBRL(saldo);
+      box.style.display = 'inline-flex';
+    }
+
+    sel.addEventListener('change', updateSaldo);
+    updateSaldo();
+  })();
+
+  // Acordeão por cliente
+  (function(){
+    document.querySelectorAll('.cliente-item').forEach(card => {
+      const head = card.querySelector('.cliente-head');
+      if(!head) return;
+      head.addEventListener('click', (ev) => {
+        // não fechar se clicar em botão dentro do head (ex: limpar)
+        if(ev.target.closest('button') || ev.target.closest('form')) return;
+        const open = card.classList.contains('open');
+        document.querySelectorAll('.cliente-item.open').forEach(c => c.classList.remove('open'));
+        if(!open){
+          card.classList.add('open');
+        }
+      });
+    });
+  })();
+
+  // Pesquisa por nome do cliente
+  (function(){
+    const input = document.getElementById('searchCliente');
+    if(!input) return;
+    input.addEventListener('input', () => {
+      const termo = input.value.toLowerCase().trim();
+      document.querySelectorAll('.cliente-item').forEach(card => {
+        const nome = card.querySelector('.cliente-name').textContent.toLowerCase();
+        card.style.display = nome.includes(termo) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Exportar Entregas</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lista de Entregas</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Cooperado</th>
+                <th>Bairro</th>
+                <th>Valor (R$)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entregas %}
+            <tr>
+                <td>{{ e.id }}</td>
+                <td>{{ e.cliente }}</td>
+                <td>{{ e.cooperado or 'Não atribuído' }}</td>
+                <td>{{ e.bairro }}</td>
+                <td>{{ "%.2f"|format(e.valor) }}</td>
+                <td>{{ e.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p>Use a função de imprimir do navegador (Ctrl+P) para salvar em PDF.</p>
+</body>
+</html>

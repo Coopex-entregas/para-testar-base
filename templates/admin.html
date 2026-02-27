@@ -384,6 +384,18 @@
       font-weight:800;
       outline:none;
     }
+
+    .map-filter{
+      min-width:180px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      outline:none;
+    }
+    .map-filter option{color:#0b1220;}
+
     .map-search option{ color:#000; }
     .map-full-btn{
       background:rgba(255,255,255,.14);
@@ -685,7 +697,7 @@
       height:34px;
       border-radius:14px;
       background:rgba(255,255,255,.92);
-      border:2px solid rgba(255,255,255,.85);
+      border:1px solid rgba(255,255,255,.75);
       box-shadow:0 10px 22px rgba(0,0,0,.18);
       transform: translate3d(0,0,0);
     }
@@ -721,7 +733,50 @@
     }
     .cluster-badge.online{ background: #10b981; }
     .cluster-badge.offline{ background: #ef4444; }
-  </style>
+  
+    /* ===== FOTO COMPROVANTE ===== */
+    .foto-btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:30px;height:30px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.10);
+      text-decoration:none;
+      font-weight:900;
+      line-height:1;
+    }
+    .foto-btn.foto-ok{ background:rgba(16,185,129,.18); border-color:rgba(16,185,129,.55); }
+    .foto-btn.foto-no{ background:rgba(239,68,68,.16); border-color:rgba(239,68,68,.55); opacity:.95; }
+    .foto-dl{
+      margin-left:6px;
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px;height:28px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.10);
+      text-decoration:none;
+      font-weight:900;
+    }
+
+  
+    .recb-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+    .recb-nome{font-weight:800;font-size:.86rem;opacity:.92;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+
+    .socorro-bar{
+      position:fixed; left:16px; right:16px; bottom:16px;
+      background:linear-gradient(90deg,#b91c1c,#ef4444);
+      color:#fff; border-radius:16px; padding:12px 14px;
+      display:flex; align-items:center; justify-content:space-between;
+      box-shadow:0 18px 40px rgba(0,0,0,.30);
+      z-index:9999;
+    }
+    .socorro-left{display:flex; flex-direction:column; gap:4px}
+    .socorro-title{font-weight:900; letter-spacing:.2px}
+    .socorro-count{background:rgba(255,255,255,.2); padding:2px 8px; border-radius:999px; margin-left:6px}
+    .socorro-msg{font-weight:700; opacity:.95; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:70vw}
+    .socorro-x{border:none; background:rgba(255,255,255,.2); color:#fff; font-size:22px; width:38px; height:38px; border-radius:12px; cursor:pointer; font-weight:900}
+    .socorro-x:hover{background:rgba(255,255,255,.28)}
+
+</style>
 </head>
 
 <body>
@@ -862,6 +917,11 @@
             <div class="map-header-actions">
               <select id="mapSearch" class="map-search">
                 <option value="">🔍 Localizar motoboy…</option>
+              </select>
+
+              <select id="mapFilter" class="map-filter">
+                <option value="all">👁️ Ver todos</option>
+                <option value="online">🟢 Só online</option>
               </select>
 
               <button id="btnFullMap" class="map-full-btn" type="button">Mapa em tela cheia</button>
@@ -1005,37 +1065,54 @@
                   <td>{{ e.pagamento }}</td>
 
                   <td>
-                    {% if st in ['entregue','recebido'] %}
-                      <span class="pill yellow">Entregue</span>
-                    {% elif st in ['agendado'] %}
-                      <span class="pill blue">Agendado</span>
-                    {% elif st in ['pix'] %}
-                      <span class="pill green">Pix</span>
-                    {% else %}
-                      <form action="{{ url_for('marcar_entregue', id=e.id) }}" method="POST" style="display:inline">
-                        <input type="hidden" name="status" value="entregue">
-                        <span class="pill red js-toggle-entrega" role="button" title="Clique para marcar como ENTREGUE">Pendente</span>
-                      </form>
-                    {% endif %}
+                    {% set st_val = (e.status or 'pendente')|lower %}
+                    <span class="status-editable"
+                          data-id="{{ e.id }}"
+                          data-status="{{ st_val }}"
+                          title="Clique para alterar o status da entrega">
+                      {% if st_val in ['entregue','recebido'] %}
+                        <span class="pill yellow">Entregue</span>
+                      {% elif st_val in ['agendado'] %}
+                        <span class="pill blue">Agendado</span>
+                      {% else %}
+                        <span class="pill red">Pendente</span>
+                      {% endif %}
+                    </span>
                   </td>
 
                   <td>
-                    {% if sp == 'pago' %}
-                      <span class="pill green">Pago</span>
-                    {% else %}
-                      <form action="{{ url_for('marcar_pagamento', id=e.id) }}" method="POST" style="display:inline">
-                        <input type="hidden" name="status_pagamento" value="pago">
-                        <span class="pill red js-toggle-pagto" role="button" title="Clique para marcar como PAGO">Pendente</span>
-                      </form>
-                    {% endif %}
+                    {% set sp_val = (e.status_pagamento or 'pendente')|lower %}
+                    <span class="pagamento-editable"
+                          data-id="{{ e.id }}"
+                          data-status-pagamento="{{ sp_val }}"
+                          title="Clique para alterar o status do pagamento">
+                      {% if sp_val == 'pago' %}
+                        <span class="pill green">Pago</span>
+                      {% else %}
+                        <span class="pill red">Pendente</span>
+                      {% endif %}
+                    </span>
                   </td>
 
-                  <td title="{{ e.recebido_por or '-' }}">{{ e.recebido_por or '-' }}</td>
+                  <td class="td-recebido" style="text-align:center">
+                    <div class="recb-wrap">
+                      {% if tem_comprovante(e.id) %}
+                        <a class="foto-btn foto-ok" title="Ver foto" target="_blank" rel="noopener" href="{{ url_for('admin_ver_comprovante', entrega_id=e.id) }}">📷</a>
+                        <a class="foto-dl" title="Baixar foto" href="{{ url_for('admin_baixar_comprovante', entrega_id=e.id) }}">⬇</a>
+                      {% else %}
+                        <span class="foto-btn foto-no" title="Sem foto">📷</span>
+                      {% endif %}
+                      <div class="recb-nome" title="{{ e.recebido_por or '-' }}">{{ e.recebido_por or '-' }}</div>
+                    </div>
+                  </td>
 
                   <td>
-                    {% if tem_coop %}
-                      {% set rastreio_link = url_for('rastreamento', codigo=e.id, motoboy_id=e.cooperado.id, _external=True) %}
+                    {% set st_ent = (e.status or '')|lower %}
+                    {% if tem_coop and st_ent not in ['recebido','entregue'] %}
+                      {% set rastreio_link = url_for('rastreio_publico', token=token_rastreio(e.id), _external=True) %}
                       <a href="{{ rastreio_link }}" target="_blank" class="act-open" rel="noopener">Abrir</a>
+                    {% elif tem_coop %}
+                      <span class="small">Encerrado</span>
                     {% else %}
                       <span class="small">—</span>
                     {% endif %}
@@ -1347,6 +1424,131 @@
 
       sel.addEventListener('change', salvar);
       sel.addEventListener('blur', ()=> salvar(), { once:true });
+    });
+
+    async function salvarInlineEntrega(idEntrega, payload){
+      try{
+        const r = await fetch(`/api/entregas/${idEntrega}/inline`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
+          body: JSON.stringify(payload || {})
+        });
+        if(!r.ok) return null;
+        return await r.json();
+      }catch(e){
+        return null;
+      }
+    }
+
+    function makePillStatus(st){
+      st = (st||'').toLowerCase();
+      if(st === 'agendado') return '<span class="pill blue">Agendado</span>';
+      if(st === 'entregue' || st === 'recebido') return '<span class="pill yellow">Entregue</span>';
+      return '<span class="pill red">Pendente</span>';
+    }
+    function makePillPagto(sp){
+      sp = (sp||'').toLowerCase();
+      if(sp === 'pago') return '<span class="pill green">Pago</span>';
+      return '<span class="pill red">Pendente</span>';
+    }
+
+    document.addEventListener('click', (ev)=>{
+      const el = ev.target.closest?.('.status-editable');
+      if(!el) return;
+      ev.preventDefault(); ev.stopPropagation();
+
+      const idEntrega = el.dataset?.id || '';
+      const atual = (el.dataset?.status || '').toLowerCase();
+
+      const sel = document.createElement('select');
+      sel.style.borderRadius='12px';
+      sel.style.padding='7px 10px';
+      sel.style.fontWeight='900';
+
+      const opts = [
+        {v:'pendente', t:'Pendente'},
+        {v:'agendado', t:'Agendado'},
+        {v:'recebido', t:'Entregue'},
+      ];
+      opts.forEach(o=>{
+        const op=document.createElement('option');
+        op.value=o.v; op.textContent=o.t;
+        if(o.v===atual || (atual==='' && o.v==='pendente')) op.selected=true;
+        sel.appendChild(op);
+      });
+
+      el.parentNode.replaceChild(sel, el);
+      sel.focus();
+
+      async function salvar(){
+        const st = sel.value || 'pendente';
+        const res = await salvarInlineEntrega(idEntrega, {status: st});
+        const span = document.createElement('span');
+        span.className='status-editable';
+        span.dataset.id=idEntrega;
+        span.dataset.status=st;
+        span.title='Clique para alterar o status da entrega';
+        span.innerHTML = makePillStatus(st);
+        sel.parentNode.replaceChild(span, sel);
+
+        if(res && res.ok){
+          showToast('<strong>Status atualizado.</strong>');
+        }else{
+          showToast('<strong>Não foi possível atualizar o status agora.</strong>');
+        }
+      }
+
+      sel.addEventListener('change', salvar);
+      sel.addEventListener('blur', ()=> salvar(), {once:true});
+    });
+
+    document.addEventListener('click', (ev)=>{
+      const el = ev.target.closest?.('.pagamento-editable');
+      if(!el) return;
+      ev.preventDefault(); ev.stopPropagation();
+
+      const idEntrega = el.dataset?.id || '';
+      const atual = (el.dataset?.statusPagamento || '').toLowerCase();
+
+      const sel = document.createElement('select');
+      sel.style.borderRadius='12px';
+      sel.style.padding='7px 10px';
+      sel.style.fontWeight='900';
+
+      const opts = [
+        {v:'pendente', t:'Pendente'},
+        {v:'pago', t:'Pago'},
+      ];
+      opts.forEach(o=>{
+        const op=document.createElement('option');
+        op.value=o.v; op.textContent=o.t;
+        if(o.v===atual || (atual==='' && o.v==='pendente')) op.selected=true;
+        sel.appendChild(op);
+      });
+
+      el.parentNode.replaceChild(sel, el);
+      sel.focus();
+
+      async function salvar(){
+        const sp = sel.value || 'pendente';
+        const res = await salvarInlineEntrega(idEntrega, {status_pagamento: sp});
+        const span = document.createElement('span');
+        span.className='pagamento-editable';
+        span.dataset.id=idEntrega;
+        span.dataset.statusPagamento=sp;
+        span.title='Clique para alterar o status do pagamento';
+        span.innerHTML = makePillPagto(sp);
+        sel.parentNode.replaceChild(span, sel);
+
+        if(res && res.ok){
+          showToast('<strong>Pagamento atualizado.</strong>');
+        }else{
+          showToast('<strong>Não foi possível atualizar o pagamento agora.</strong>');
+        }
+      }
+
+      sel.addEventListener('change', salvar);
+      sel.addEventListener('blur', ()=> salvar(), {once:true});
     });
 
     async function salvarValorEntrega(idEntrega, novo){
@@ -1665,7 +1867,31 @@
 +'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
 +'    </div>'
 +'  </div>'
-+'</body>'
++'
+  <!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
+      }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
+</body>'
 +'</html>';
 
       try{
@@ -1726,228 +1952,269 @@
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 
   <script>
-    // ===== MAPA (agrupamento sem modal + sem "gps ocioso" + sem reagrupar quando aproximar) =====
+    // ===== MAPA (SEM AGRUPAMENTO / COM LISTA + FILTRO) =====
     window.addEventListener('DOMContentLoaded', function(){
       var mapEl = document.getElementById('map-coopex');
       if (!mapEl || typeof L === 'undefined') return;
 
-      var map = L.map('map-coopex', { zoomControl: true }).setView([-5.7945, -35.211], 13);
-      setTimeout(function(){ try{ map.invalidateSize(); }catch(e){} }, 350);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      var map = L.map('map-coopex', { zoomControl: true, preferCanvas: true }).setView([-5.7945, -35.211], 13);
+
+      // Tile COLORIDO e mais estável no Render
+      var tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
         attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19
+        subdomains: 'abcd'
       }).addTo(map);
 
-      // grupo com cluster:
-      // - NÃO abre modal ao clicar
-      // - DESLIGA agrupamento a partir do zoom 15 (assim, ao aproximar, não volta a reagrupar sozinho)
-      // camada de marcadores (SEM agrupamento)
-      var markersLayer = L.layerGroup().addTo(map);
+      // força recalcular tamanho (muito comum o mapa nascer "travado")
+      setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
+      setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 1200);
 
-var motoboyMarkers = {}; // id -> marker
-      var firstFitDone = false;
-
-      window.__mapCoopex = map;
-      window.__motoboyMarkers = motoboyMarkers;
-      window.__motoboyCluster = cluster;
-
-      function getStatus(m){
-        // regra simples (sem GPS ocioso):
-        // online true => online
-        // online false => offline
-        return (m && m.online) ? 'online' : 'offline';
+      // marcador fino e pequeno
+      function makeMarker(lat, lng, tooltipHtml, online){
+        var color = online ? '#16a34a' : '#ef4444';
+        var m = L.circleMarker([lat,lng], {
+          radius: 4,
+          weight: 2,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.85
+        }).addTo(map);
+        if (tooltipHtml){
+          m.bindTooltip(tooltipHtml, {direction:'top', sticky:true});
+        }
+        return m;
       }
 
-      function statusTexto(st){
-        return (st === 'online') ? 'Online (app ligado)' : 'Offline / desconectado';
+      var markers = {}; // id -> marker
+      var lastData = [];
+      var currentFilter = 'all';
+
+      var sel = document.getElementById('mapSearch');
+      var filterSel = document.getElementById('mapFilter');
+
+      function isOnline(p){
+        if (typeof p.online === 'boolean') return p.online;
+        if (typeof p.is_online === 'boolean') return p.is_online;
+        var s = String(p.status || '').toLowerCase();
+        return (s.includes('online') || s.includes('livre') || s.includes('corrida'));
       }
 
-      function motoSvg(){
-        return '' +
-          '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-          '<path d="M5.5 15.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm13 0a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM7 6h4l1.2 3H9.5c-.6 0-1 .4-1 1s.4 1 1 1h3.5l.8 2H11a1 1 0 0 0-.9.6l-.7 1.4H7.9A4.5 4.5 0 0 0 3 18h2a2.5 2.5 0 0 1 5 0h6a2.5 2.5 0 0 1 5 0h2a4.5 4.5 0 0 0-4.5-4.5h-1.7l-1.9-4.7a1.5 1.5 0 0 0-1.4-.9H12l-.7-1.7A1.5 1.5 0 0 0 9.9 5H7a1 1 0 0 0 0 2Z"/>' +
-          '</svg>';
-      }
-
-      function buildIcon(status){
-        return L.divIcon({
-          className: '',
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
-          popupAnchor: [0, -16],
-          html: '<div class="moto-pin '+status+'">'+motoSvg()+'</div>'
-        });
-      }
-
-      function popupHtml(m, st){
-        var vel = (m.velocidade != null) ? (Number(m.velocidade) || 0) : 0;
-        return (
-          '<div style="min-width:220px">' +
-          '<strong>'+ (m.nome || 'Motoboy') +'</strong><br>' +
-          'Velocidade: '+ vel +' km/h<br>' +
-          'Status: '+ statusTexto(st) +
-          '</div>'
-        );
-      }
-
-      function preencherSelectPesquisa(lista){
-        var sel = document.getElementById('mapSearch');
-        if(!sel) return;
-
+      function renderList(list){
+        if (!sel) return;
         var keep = sel.value;
-        while(sel.options.length > 1) sel.remove(1);
-
-        var arr = (Array.isArray(lista) ? lista.slice() : []);
-        arr.sort(function(a,b){
-          var an = (a?.nome||'').toLowerCase();
-          var bn = (b?.nome||'').toLowerCase();
-          return an.localeCompare(bn);
-        });
-
-        arr.forEach(function(m){
-          if(!m || !m.id) return;
+        sel.innerHTML = '<option value="">🔍 Localizar motoboy…</option>';
+        list.forEach(function(p){
           var opt = document.createElement('option');
-          opt.value = String(m.id);
-          opt.textContent = m.nome || ('Motoboy #' + m.id);
+          opt.value = String(p.id);
+          opt.textContent = p.nome || ('Motoboy ' + p.id);
           sel.appendChild(opt);
         });
-
-        if(keep){
-          for(var i=0;i<sel.options.length;i++){
-            if(sel.options[i].value === keep){ sel.value = keep; break; }
-          }
+        // mantém seleção se ainda existir
+        if (keep && Array.from(sel.options).some(function(o){ return o.value === keep; })){
+          sel.value = keep;
         }
       }
 
-      function destacarMarker(marker){
+      function renderMarkers(list){
+        var seen = new Set();
+
+        list.forEach(function(p){
+          var lat = p.lat, lng = p.lng;
+          if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+          seen.add(String(p.id));
+
+          var online = isOnline(p);
+          var statusTxt = online ? 'ONLINE' : 'OFFLINE';
+          var html = '<b>'+ (p.nome||'') +'</b>'
+                   + '<br><span style="font-weight:800">'+statusTxt+'</span>'
+                   + (p.ultima_atualizacao ? '<br><span style="opacity:.9">'+p.ultima_atualizacao+'</span>' : '')
+                   + (p.endereco ? '<br><span style="opacity:.9">'+p.endereco+'</span>' : '');
+
+          if (!markers[String(p.id)]){
+            markers[String(p.id)] = makeMarker(lat, lng, html, online);
+          } else {
+            markers[String(p.id)].setLatLng([lat,lng]);
+            markers[String(p.id)].setStyle({
+              color: online ? '#16a34a' : '#ef4444',
+              fillColor: online ? '#16a34a' : '#ef4444'
+            });
+            try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
+          }
+        });
+
+        // remove marcadores que sumiram
+        Object.keys(markers).forEach(function(k){
+          if(!seen.has(k)){
+            try{ map.removeLayer(markers[k]); }catch(e){}
+            delete markers[k];
+          }
+        });
+
+        // se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
         try{
-          marker.setZIndexOffset(10000);
-          var el = marker.getElement ? marker.getElement() : null;
-          if(el){
-            var pin = el.querySelector('.moto-pin');
-            if(pin){
-              pin.classList.add('moto-highlight');
-              setTimeout(function(){
-                try{ pin.classList.remove('moto-highlight'); }catch(e){}
-              }, 2600);
+          if (list.length && (!sel || !sel.value)){
+            var pts = list
+              .filter(function(p){ return (typeof p.lat==='number' && typeof p.lng==='number'); })
+              .map(function(p){ return [p.lat, p.lng]; });
+            if (pts.length){
+              map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
             }
+          }
+        }catch(e){}
+
+        setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 50);
+      }
+
+      function applyFilterAndRender(){
+        var list = lastData.slice();
+        if (currentFilter === 'online'){
+          list = list.filter(isOnline);
+        }
+        renderList(list);
+        renderMarkers(list);
+      }
+
+      if (filterSel){
+        filterSel.addEventListener('change', function(){
+          currentFilter = filterSel.value || 'all';
+          applyFilterAndRender();
+        });
+      }
+
+      if (sel){
+        sel.addEventListener('change', function(){
+          var id = sel.value;
+          if (!id) return;
+          var p = lastData.find(function(x){ return String(x.id) === String(id); });
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+
+          try{
+            map.setView([p.lat, p.lng], 16);
+            if (markers[String(p.id)]){
+              try{ markers[String(p.id)].openTooltip(); }catch(e){}
+            }
+          }catch(e){}
+        });
+      }
+
+      async function atualizar(){
+        try{
+          const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
+            cache:'no-store',
+            headers:{'X-Requested-With':'fetch', 'Accept':'application/json'}
+          });
+          if(!r.ok) return;
+          const data = await r.json();
+          if(!Array.isArray(data)) return;
+          lastData = data;
+          applyFilterAndRender();
+        }catch(e){}
+      }
+
+      atualizar();
+      setInterval(atualizar, 5000);
+    });
+  </script>
+
+  <!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
+      }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
+
+  <!-- SOCORRO (persistente até clicar no X) -->
+  <div id="socorro-bar" style="display:none" class="socorro-bar" role="alert" aria-live="assertive">
+    <div class="socorro-left">
+      <div class="socorro-title">⚠️ SOCORRO <span id="socorro-count" class="socorro-count">0</span></div>
+      <div id="socorro-msg" class="socorro-msg"></div>
+    </div>
+    <button id="socorro-x" class="socorro-x" type="button" title="Marcar como lido">×</button>
+  </div>
+
+  <script>
+    (function socorroPollingReal(){
+      const audio = document.getElementById('som-socorro') || document.getElementById('socorroAudio') || document.getElementById('som-pendente');
+      const bar = document.getElementById('socorro-bar');
+      const msgEl = document.getElementById('socorro-msg');
+      const countEl = document.getElementById('socorro-count');
+      const btnX = document.getElementById('socorro-x');
+
+      let currentId = null;
+      let lastPlayedId = null;
+
+      function show(data){
+        if(!bar || !msgEl || !countEl) return;
+        bar.style.display = 'flex';
+        countEl.textContent = String(data.count || 0);
+        msgEl.textContent = (data.cooperado||'') + ' — ' + (data.mensagem||'') + (data.momento ? (' · ' + data.momento) : '');
+      }
+      function hide(){
+        if(!bar) return;
+        bar.style.display = 'none';
+        if(msgEl) msgEl.textContent = '';
+        if(countEl) countEl.textContent = '0';
+      }
+
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            currentId = data.id || null;
+            show(data);
+
+            if(currentId && currentId !== lastPlayedId){
+              lastPlayedId = currentId;
+              try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            }
+          }else{
+            currentId = null;
+            hide();
           }
         }catch(e){}
       }
 
-      function focarMotoboyPorId(id){
-        if(!id) return;
-        var mk = motoboyMarkers[id];
-        if(!mk){
-          showToast('<strong>Não localizado no mapa agora.</strong> Pode estar offline/sem GPS.');
-          return;
-        }
-
-        (function(){
+      if(btnX){
+        btnX.addEventListener('click', async ()=>{
+          if(!currentId) return;
           try{
-            map.setView(mk.getLatLng(), Math.max(map.getZoom(), 17), { animate:true });
-          }catch(e){}
-          try{ mk.openPopup(); }catch(e){}
-          destacarMarker(mk);
-        })();
-      }
-
-      var selSearch = document.getElementById('mapSearch');
-      if(selSearch){
-        selSearch.addEventListener('change', function(){
-          var id = String(selSearch.value || '');
-          if(!id) return;
-          focarMotoboyPorId(id);
-        });
-      }
-
-      function atualizarMarcadores(lista){
-        if (!Array.isArray(lista)) lista = [];
-        var ativos = {};
-
-        lista.forEach(function(m){
-          if (!m || !m.id) return;
-
-          var lat = Number(m.lat), lng = Number(m.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-          ativos[m.id] = true;
-
-          var st = getStatus(m);
-          var marker = motoboyMarkers[m.id];
-
-          if (!marker) {
-            marker = L.marker([lat, lng], {
-              icon: buildIcon(st),
-              riseOnHover: true
+            const r = await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({id: currentId})
             });
-
-            marker.__mid = m.id;
-            marker.__status = st;
-            marker.__data = m;
-
-            marker.bindPopup(popupHtml(m, st), { closeButton:true, autoPan:true });
-
-            markersLayer.addLayer(marker);
-            motoboyMarkers[m.id] = marker;
-          } else {
-            marker.setLatLng([lat, lng]);
-            marker.__status = st;
-            marker.__data = m;
-
-            marker.setIcon(buildIcon(st));
-            if (marker.isPopupOpen()) marker.setPopupContent(popupHtml(m, st));
-          }
-        });
-
-        Object.keys(motoboyMarkers).forEach(function(id){
-          if (!ativos[id]) {
-            try{ cluster.removeLayer(motoboyMarkers[id]); }catch(e){}
-            delete motoboyMarkers[id];
-          }
-        });
-
-        var layers = Object.values(motoboyMarkers);
-        if (layers.length && !firstFitDone) {
-          try{
-            var group = L.featureGroup(layers);
-            map.fitBounds(group.getBounds().pad(0.25));
-            firstFitDone = true;
+            if(r.ok){
+              await check();
+            }
           }catch(e){}
-        }
-
-        preencherSelectPesquisa(lista);
-      }
-
-      atualizarMarcadores(Array.isArray(window.MOTOBOYS) ? window.MOTOBOYS : []);
-
-      // socket tempo real do mapa
-      if (typeof socket !== 'undefined') {
-        socket.on('motoboys_update', function(lista){
-          atualizarMarcadores(lista);
         });
       }
 
-      // polling fallback
-      function atualizarDoServidor(){
-        fetch("{{ url_for('mapa_motoboys') }}", { headers: { 'X-Requested-With': 'fetch' } })
-          .then(function(res){
-            var ct = (res.headers.get('content-type') || '').toLowerCase();
-            if(ct.includes('application/json')) return res.json();
-            return res.text().then(function(t){
-              try{ return JSON.parse(t); }catch(e){ throw new Error('Resposta não-JSON em mapa_motoboys'); }
-            });
-          })
-          .then(function(data){
-            atualizarMarcadores(data);
-          })
-          .catch(function(err){
-            console.error('Erro ao atualizar motoboys:', err);
-          });
-      }
-      setInterval(atualizarDoServidor, 5000);
-    });
+      check();
+      setInterval(check, 4000);
+    })();
   </script>
+
 </body>
 </html>

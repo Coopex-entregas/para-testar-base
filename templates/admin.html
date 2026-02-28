@@ -412,7 +412,7 @@
 
     #map-coopex{
       width:100%;
-      height:68vh;
+      height:340px;
       border-radius:16px;
       overflow:hidden;
       box-shadow:0 10px 26px rgba(0,0,0,.18);
@@ -789,17 +789,7 @@
   height: calc(100vh - 120px) !important;
 }
 
-
-    /* Compactação do topo do mapa (mais área útil) */
-    .map-header{padding:10px 12px !important; gap:10px !important;}
-    .map-header-main{gap:8px !important;}
-    .map-legend-bar{padding:6px 10px !important; gap:10px !important; border-radius:999px !important;}
-    .legend-item{font-size:12px !important;}
-    .map-header-actions{gap:8px !important; flex-wrap:nowrap !important;}
-    .map-search, .map-filter{height:38px !important; padding:8px 12px !important; font-size:13px !important; border-radius:12px !important;}
-    .map-full-btn{height:38px !important; padding:8px 14px !important; border-radius:12px !important;}
-
-  </style>
+</style>
 </head>
 
 <body>
@@ -1459,18 +1449,17 @@
       sel.addEventListener('blur', ()=> salvar(), { once:true });
     });
 
-    function salvarInlineEntrega(idEntrega, payload){
+    async function salvarInlineEntrega(idEntrega, payload){
       try{
-        return fetch(`/api/entregas/${idEntrega}/inline`, {
+        const r = await fetch(`/api/entregas/${idEntrega}/inline`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
           body: JSON.stringify(payload || {})
-        }).then(function(r){
-          if(!r.ok) return null;
-          return r.json().catch(function(){ return null; });
-        }).catch(function(){ return null; });
+        });
+        if(!r.ok) return null;
+        return await r.json();
       }catch(e){
-        return Promise.resolve(null);
+        return null;
       }
     }
 
@@ -1514,11 +1503,10 @@
       el.parentNode.replaceChild(sel, el);
       sel.focus();
 
-      function salvar(){
+      async function salvar(){
         const st = sel.value || 'pendente';
-        salvarInlineEntrega(idEntrega, {status: st}).then(function(res){
-          if(!res) return;
-          const span = document.createElement('span');
+        const res = await salvarInlineEntrega(idEntrega, {status: st});
+        const span = document.createElement('span');
         span.className='status-editable';
         span.dataset.id=idEntrega;
         span.dataset.status=st;
@@ -1531,7 +1519,6 @@
         }else{
           showToast('<strong>Não foi possível atualizar o status agora.</strong>');
         }
-        });
       }
 
       sel.addEventListener('change', salvar);
@@ -1565,11 +1552,10 @@
       el.parentNode.replaceChild(sel, el);
       sel.focus();
 
-      function salvar(){
+      async function salvar(){
         const sp = sel.value || 'pendente';
-        salvarInlineEntrega(idEntrega, {status_pagamento: sp}).then(function(res){
-          if(!res) return;
-          const span = document.createElement('span');
+        const res = await salvarInlineEntrega(idEntrega, {status_pagamento: sp});
+        const span = document.createElement('span');
         span.className='pagamento-editable';
         span.dataset.id=idEntrega;
         span.dataset.statusPagamento=sp;
@@ -1582,39 +1568,86 @@
         }else{
           showToast('<strong>Não foi possível atualizar o pagamento agora.</strong>');
         }
-        });
       }
 
       sel.addEventListener('change', salvar);
       sel.addEventListener('blur', ()=> salvar(), {once:true});
     });
 
-    function salvarValorEntrega(idEntrega, novo){
+    async function salvarValorEntrega(idEntrega, novo){
       try{
-        return fetch(`/api/entregas/${idEntrega}/valor`, {
+        const r1 = await fetch(`/api/entregas/${idEntrega}/valor`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
           body: JSON.stringify({ valor: novo })
-        }).then(function(r1){
-          if(r1 && r1.ok) return true;
-          // fallback para rota html
-          var fd = new FormData();
-          fd.append('valor', novo);
-          fd.append('valor_servico', novo);
-          fd.append('atualizar_valor', '1');
-          fd.append('notificar_painel', '1');
-          return fetch(`/editar_entrega/${idEntrega}`, {
-            method:'POST',
-            body: fd,
-            headers:{'X-Requested-With':'fetch'}
-          }).then(function(r2){ return !!(r2 && r2.ok); }).catch(function(){ return false; });
-        }).catch(function(){
-          return false;
         });
-      }catch(e){
-        return Promise.resolve(false);
-      }
+        if(r1.ok) return true;
+      }catch(e){}
+
+      try{
+        const fd = new FormData();
+        fd.append('valor', novo);
+        fd.append('valor_servico', novo);
+        fd.append('atualizar_valor', '1');
+        fd.append('notificar_painel', '1');
+
+        const r2 = await fetch(`/editar_entrega/${idEntrega}`, {
+          method:'POST',
+          body: fd,
+          headers:{'X-Requested-With':'fetch'}
+        });
+        if(r2.ok) return true;
+      }catch(e){}
+
+      return false;
     }
+
+    document.addEventListener('click', (ev)=>{
+      const el = ev.target.closest?.('.value-editable');
+      if(!el) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const idEntrega = el.dataset?.id || '';
+      if(!idEntrega) return;
+
+      let valorAtual = el.dataset.valor || '';
+      if(!valorAtual) valorAtual = String(parseNumberFromBRL(el.textContent || '')).toFixed(2);
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'value-input';
+      input.inputMode = 'decimal';
+      input.value = String(valorAtual).replace('.', ',');
+
+      el.parentNode.replaceChild(input, el);
+      input.focus();
+      input.select();
+
+      async function finalizar(shouldSave){
+        const raw = (input.value || '').trim();
+        let num = parseNumberFromBRL(raw);
+        if(!Number.isFinite(num) || num <= 0) num = parseNumberFromBRL(valorAtual);
+        const novo = num.toFixed(2);
+
+        const span = document.createElement('span');
+        span.className = 'value-editable';
+        span.dataset.id = idEntrega;
+        span.dataset.valor = novo;
+        span.title = 'Clique para alterar o valor';
+        span.textContent = formatBRLFromNumberLike(novo);
+
+        input.parentNode.replaceChild(span, input);
+        if(!shouldSave) return;
+
+        const ok = await salvarValorEntrega(idEntrega, novo);
+        if(ok){
+          showToast('<strong>Valor atualizado.</strong>');
+        }else{
+          window.location.href = `/editar_entrega/${idEntrega}`;
+        }
+      }
 
       input.addEventListener('keydown', (e)=>{
         if(e.key === 'Enter'){ e.preventDefault(); finalizar(true); }
@@ -1927,7 +1960,7 @@
         try{
           if(!__cupomTmpDados) return;
           var html = __buildCupomHtml(__cupomTmpDados, 'normal', {});
-          if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
+          if(window.__printHtmlTM20X){ window.__printHtmlTM20X(html); } else { alert("Impressão não disponível: função de impressão não carregou."); }
           __closeCupomOverlay();
         }catch(e){
           console.error(e);
@@ -1957,7 +1990,7 @@
             recebido: (document.getElementById('cupomRecebido')||{}).value || ''
           };
           var html = __buildCupomHtml(__cupomTmpDados, 'editado', edits);
-          if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
+          if(window.__printHtmlTM20X){ window.__printHtmlTM20X(html); } else { alert("Impressão não disponível: função de impressão não carregou."); }
           __closeCupomOverlay();
         }catch(e){
           console.error(e);
@@ -2006,18 +2039,12 @@ function abrirMapaTelaCheia() {
 
       var map = L.map('map-coopex', { zoomControl: true, preferCanvas: true }).setView([-5.7945, -35.211], 13);
 
-            // Tile MapTiler (Outdoor) - estável e com estilo realista
-      const MAPTILER_KEY = 'bSeKIro6dKQKEDRrIUee';
-      var tile = L.tileLayer(
-        `https://api.maptiler.com/maps/outdoor-v4/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`,
-        {
-          maxZoom: 20,
-          tileSize: 512,
-          zoomOffset: -1,
-          attribution: '&copy; OpenStreetMap contributors &copy; MapTiler'
-        }
-      ).addTo(map);
-
+      // Tile COLORIDO e mais estável no Render
+      var tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd'
+      }).addTo(map);
 
       // força recalcular tamanho (muito comum o mapa nascer "travado")
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
@@ -2049,11 +2076,7 @@ function abrirMapaTelaCheia() {
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
       map.on('zoomstart movestart', function(){
-        // não interrompe o follow quando o movimento foi programático
         if (!programmaticMove) userInteracted = true;
-      });
-      map.on('click', function(){
-        userInteracted = true; // para de seguir quando o admin clicar no mapa
       });
 
 
@@ -2141,20 +2164,6 @@ function abrirMapaTelaCheia() {
         }
         renderList(list);
         renderMarkers(list);
-
-        // FOLLOW: se escolheu um motoboy, manter a câmera acompanhando até o admin clicar no mapa
-        if (selectedId && !userInteracted){
-          var p = lastData.find(function(x){ return String(x.id) === String(selectedId); });
-          if (p && typeof p.lat === 'number' && typeof p.lng === 'number'){
-            try{
-              programmaticMove = true;
-              map.setView([p.lat, p.lng], Math.max(map.getZoom() || 16, 16), {animate:true});
-              setTimeout(function(){ programmaticMove = false; }, 200);
-            }catch(e){
-              programmaticMove = false;
-            }
-          }
-        }
       }
 
       if (filterSel){
@@ -2168,7 +2177,6 @@ function abrirMapaTelaCheia() {
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
-          userInteracted = false; // volta a seguir automaticamente
           if (!id) return;
           programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
@@ -2222,22 +2230,18 @@ function abrirMapaTelaCheia() {
         try{ setTimeout(function(){ map.invalidateSize(true); }, 200); }catch(e){}
       });
 
-      function atualizar(){
+      async function atualizar(){
         try{
-          return fetch('{{ url_for("mapa_motoboys") }}?format=json', {
+          const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
             cache:'no-store',
-            headers:{'X-Requested-With':'fetch','Accept':'application/json'}
-          }).then(function(r){
-            if(!r || !r.ok) return null;
-            return r.json().catch(function(){ return null; });
-          }).then(function(data){
-            if(!Array.isArray(data)) return;
-            lastData = data;
-            applyFilterAndRender();
-          }).catch(function(){});
-        }catch(e){
-          return Promise.resolve();
-        }
+            headers:{'X-Requested-With':'fetch', 'Accept':'application/json'}
+          });
+          if(!r.ok) return;
+          const data = await r.json();
+          if(!Array.isArray(data)) return;
+          lastData = data;
+          applyFilterAndRender();
+        }catch(e){}
       }
 
       atualizar();
@@ -2250,25 +2254,18 @@ function abrirMapaTelaCheia() {
   <script>
     (function socorroPolling(){
       const audio = document.getElementById('socorroAudio');
-      function check(){
+      async function check(){
         try{
-          return fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'})
-            .then(function(r){
-              if(!r || !r.ok) return null;
-              return r.json().catch(function(){ return null; });
-            })
-            .then(function(data){
-              if(data && data.novo){
-                try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-                try{
-                  showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-                }catch(e){}
-              }
-            })
-            .catch(function(){});
-        }catch(e){
-          return Promise.resolve();
-        }
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
       }
       check();
       setInterval(check, 4000);
@@ -2309,43 +2306,38 @@ function abrirMapaTelaCheia() {
         if(countEl) countEl.textContent = '0';
       }
 
-      function check(){
+      async function check(){
         try{
-          return fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'})
-            .then(function(r){
-              if(!r || !r.ok) return null;
-              return r.json().catch(function(){ return null; });
-            })
-            .then(function(data){
-              if(data && data.novo){
-                // monta/atualiza modal
-                currentId = data.id || currentId;
-                show(data);
-                if(data && data.tocar){
-                  try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-                }
-              }else{
-                currentId = null;
-                hide();
-              }
-            })
-            .catch(function(){});
-        }catch(e){
-          return Promise.resolve();
-        }
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            currentId = data.id || null;
+            show(data);
+
+            if(currentId && currentId !== lastPlayedId){
+              lastPlayedId = currentId;
+              try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            }
+          }else{
+            currentId = null;
+            hide();
+          }
+        }catch(e){}
       }
 
       if(btnX){
-        btnX.addEventListener('click', function(){
+        btnX.addEventListener('click', async ()=>{
           if(!currentId) return;
           try{
-            fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
+            const r = await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
               body: JSON.stringify({id: currentId})
-            }).then(function(r){
-              if(r && r.ok){ return check(); }
-            }).catch(function(){});
+            });
+            if(r.ok){
+              await check();
+            }
           }catch(e){}
         });
       }
@@ -2451,7 +2443,9 @@ function abrirMapaTelaCheia() {
   </style>
 
 <script id="tm20x_iframe_printer">
-  // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
+  // Impressão TM-T20X 80mm via IFRAME (sem pop-up)
+  // Importante: alguns navegadores bloqueiam print() se ele ocorrer fora do "clique".
+  // Por isso imprimimos IMEDIATAMENTE após escrever o HTML no iframe (sem setTimeout).
   window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
     try{
       var iframe = document.getElementById('tm20x_print_iframe');
@@ -2469,51 +2463,39 @@ function abrirMapaTelaCheia() {
         document.body.appendChild(iframe);
       }
 
-      var doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(htmlDoc);
-      doc.close();
-
-      // Aguarda carregar imagens (logo + QR) antes de imprimir
-      var tries = 0;
-      function readyToPrint(){
-        tries++;
-        try{
-          var imgs = Array.prototype.slice.call(doc.images || []);
-          var pending = imgs.filter(function(im){ return !im.complete; });
-          if(pending.length === 0 || tries > 30){
-            try{ iframe.contentWindow.focus(); }catch(e){}
-            try{ iframe.contentWindow.print(); }catch(e){}
-            return;
-          }
-        }catch(e){
-          try{ iframe.contentWindow.print(); }catch(e){}
-          return;
-        }
-        setTimeout(readyToPrint, 120);
-      }
-      setTimeout(readyToPrint, 120);
-    }catch(e){
-      console.error(e);
-      alert('Não foi possível enviar para impressão. Verifique a impressora TM-T20X.');
-    }
-  };
+      // Garante que a página não fique "presa" sem rolagem
+      document.body.classList.remove('locked');
 
       var w = iframe.contentWindow;
       var d = iframe.contentDocument || w.document;
-      d.open(); d.write(htmlDoc); d.close();
 
-      // se onload não disparar por algum motivo
-      setTimeout(function(){
-        try{
-          var w3 = iframe.contentWindow;
-          if(w3 && w3.document && w3.document.readyState === 'complete'){
-            // trigger manual
-            iframe.onload && iframe.onload();
-          }
-        }catch(e){}
-      }, 300);
+      // escrever o cupom
+      d.open();
+      d.write(htmlDoc);
+      d.close();
 
+      // tentar imprimir imediatamente (mantém o gesto do clique)
+      try{ w.focus(); }catch(e){}
+      try{ w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
+
+      // fallback: re-tenta após carregar imagens (logo/qr), sem atrapalhar o 1º print
+      try{
+        var imgs = Array.from(d.images || []);
+        if(imgs.length){
+          var done = 0;
+          var retry = function(){
+            done++;
+            if(done >= imgs.length){
+              try{ w.focus(); w.print(); }catch(_){}
+            }
+          };
+          imgs.forEach(function(img){
+            if(img.complete) return retry();
+            img.addEventListener('load', retry, {once:true});
+            img.addEventListener('error', retry, {once:true});
+          });
+        }
+      }catch(e){}
     }catch(e){
       console.error(e);
       alert('Erro ao imprimir o cupom.');

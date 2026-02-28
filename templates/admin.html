@@ -1814,50 +1814,89 @@
       }
     };
 
-    // Gera cupom completo a partir dos data-* do botão (sem depender do innerText da tabela)
-    function imprimirCupom(btn){
+    // CUPOM: dados vêm por data-* no botão (não depende do innerText da tabela)
+    // Fluxo: clicar Cupom -> escolher (normal) ou (editar antes) -> imprimir via IFRAME (TM-T20X)
+    var __cupomTmpDados = null;
+
+    function __escapeHtml(s){
       try{
-        if(!btn || !btn.dataset){ return; }
-        var dados = {
-          id: btn.dataset.id || '-',
-          idPad: btn.dataset.idpad || String(btn.dataset.id || '-'),
-          cliente: btn.dataset.cliente || '-',
-          bairro: btn.dataset.bairro || '-',
-          endereco: btn.dataset.endereco || '-',
-          valor: btn.dataset.valor || '-',
-          data: btn.dataset.data || '-',
-          horaPedido: btn.dataset.horaPedido || '-',
-          horaAtribuida: btn.dataset.horaAtribuida || '-',
-          cooperado: btn.dataset.cooperado || '-',
-          formaPgto: btn.dataset.formaPgto || '-',
-          recebidoPor: btn.dataset.recebidoPor || '-'
-        };
+        return String(s ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'",'&#39;');
+      }catch(e){ return String(s ?? ''); }
+    }
 
-        var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
-        var agora = new Date();
-        var emitData = agora.toLocaleDateString('pt-BR');
-        var emitHora = agora.toLocaleTimeString('pt-BR');
+    function __buildCupomHtml(dados, modo, edits){
+      // modo: 'normal' | 'editado'
+      var d = Object.assign({}, dados);
+      var useEdit = (modo === 'editado');
 
-        var html = `<!doctype html>
+      // Campos editáveis
+      var cliente = useEdit ? (edits?.cliente || d.cliente) : d.cliente;
+      var coleta  = useEdit ? (edits?.coleta  || '') : '';
+      var entrega = useEdit ? (edits?.entrega || '') : '';
+      var atendente = useEdit ? (edits?.atendente || '') : (edits?.atendente || '');
+
+      // Logo local (sem _external) para evitar falhas no print/iframe
+      var logoUrl = "{{ url_for('static', filename='logo_coopex.png') }}";
+      // QR (Google Review)
+      var reviewUrl = "https://g.page/r/CY6ffwOT76pNEBM/review";
+
+      var agora = new Date();
+      var emitData = agora.toLocaleDateString('pt-BR');
+      var emitHora = agora.toLocaleTimeString('pt-BR');
+
+      // Labels
+      var addrLabel1 = useEdit ? 'Coleta:' : 'Endereço:';
+      var addrLabel2 = useEdit ? 'Entrega:' : 'Bairro:';
+
+      var addrVal1 = useEdit ? (coleta || '-') : (d.endereco || '-');
+      var addrVal2 = useEdit ? (entrega || '-') : (d.bairro || '-');
+
+      // Sanitiza para HTML
+      var safe = {
+        idPad: __escapeHtml(d.idPad || d.id || '-'),
+        data: __escapeHtml(d.data || '-'),
+        horaPedido: __escapeHtml(d.horaPedido || '-'),
+        horaAtribuida: __escapeHtml(d.horaAtribuida || '-'),
+        cliente: __escapeHtml(cliente || '-'),
+        cooperado: __escapeHtml(d.cooperado || '-'),
+        formaPgto: __escapeHtml(d.formaPgto || '-'),
+        valor: __escapeHtml(d.valor || '-'),
+        addrLabel1: __escapeHtml(addrLabel1),
+        addrLabel2: __escapeHtml(addrLabel2),
+        addrVal1: __escapeHtml(addrVal1),
+        addrVal2: __escapeHtml(addrVal2),
+        atendente: __escapeHtml(atendente || ''),
+      };
+
+      return `<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>Cupom #${dados.idPad}</title>
+  <title>Cupom #${safe.idPad}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    @page { size: 80mm 120mm; margin: 3mm; }
+    @page { size: 80mm 130mm; margin: 3mm; }
     *{ box-sizing:border-box; }
     body{ font-family: Arial, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; color:#000; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     .cupom{ width:100%; max-width:72mm; margin:0 auto; }
-    .logo{ width:62mm; max-width:100%; height:auto; display:block; margin:2mm auto 1mm; object-fit:contain; }
+    .logo{ width:58mm; max-width:100%; height:auto; display:block; margin:2mm auto 1mm; object-fit:contain; }
     .center{ text-align:center; }
     .tiny{ font-size:10.5px; line-height:1.25; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     hr{ border:none; border-top:1px dotted #000; margin:6px 0; }
-    .line{ display:flex; justify-content:space-between; gap:8px; font-size:12.3px; margin:2px 0; }
+    .line{ display:flex; justify-content:space-between; gap:8px; font-size:12.2px; margin:2px 0; }
     .line span:last-child{ text-align:right; }
     .title{ font-weight:900; font-size:13px; }
     .big{ font-weight:900; font-size:17px; }
+    .muted{ opacity:.92; }
+    .qr-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:6px; }
+    .qr-title{ font-weight:900; font-size:11px; text-align:center; }
+    .qr-foot{ font-size:10px; text-align:center; }
     .actions{ display:flex; gap:8px; justify-content:center; margin-top:10px; }
     .btn{ padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; border:1px solid #111; background:#111; color:#fff; }
     .btn.alt{ background:#fff; color:#111; border:1px solid #cbd5e1; }
@@ -1869,34 +1908,36 @@
     <img class="logo" src="${logoUrl}?v=${Date.now()}" alt="COOPEX" onerror="this.onerror=null;this.style.display='none';">
     <div class="center tiny">
       <div style="font-weight:900; font-size:12px;">COOPEX ENTREGAS</div>
-      <div>CNPJ: 05.289.938/0001-97</div>
-      <div>Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN</div>
-      <div>Fone/WhatsApp: (84) 98111-0706</div>
+      <div class="muted">COMPROVANTE / CUPOM NÃO FISCAL</div>
+      <div>Nº: <span class="mono">${safe.idPad}</span></div>
     </div>
-    <hr>
-    <div class="center title">COMPROVANTE / CUPOM NÃO FISCAL</div>
-    <div class="center tiny">Nº: <span class="mono">${dados.idPad}</span></div>
-    <hr>
-
-    <div class="line"><span>Data:</span><span class="mono">${dados.data}</span></div>
-    <div class="line"><span>Hora pedido:</span><span class="mono">${dados.horaPedido}</span></div>
-    <div class="line"><span>Hora atribuída:</span><span class="mono">${dados.horaAtribuida}</span></div>
 
     <hr>
-    <div class="line"><span>Cliente:</span><span class="mono">${dados.cliente}</span></div>
-    <div class="line"><span>Endereço:</span><span class="mono">${dados.endereco}</span></div>
-    <div class="line"><span>Bairro:</span><span class="mono">${dados.bairro}</span></div>
-    <div class="line"><span>Cooperado:</span><span class="mono">${dados.cooperado}</span></div>
-    <div class="line"><span>Forma pgto:</span><span class="mono">${dados.formaPgto}</span></div>
+    <div class="line"><span>Data:</span><span class="mono">${safe.data}</span></div>
+    <div class="line"><span>Hora pedido:</span><span class="mono">${safe.horaPedido}</span></div>
+    <div class="line"><span>Hora atribuída:</span><span class="mono">${safe.horaAtribuida}</span></div>
 
     <hr>
-    <div class="line"><span>Valor do serviço:</span><span class="mono">R$ ${dados.valor}</span></div>
-    <div class="line big"><span>TOTAL:</span><span class="mono">R$ ${dados.valor}</span></div>
+    <div class="line"><span>Cliente:</span><span class="mono">${safe.cliente}</span></div>
+    <div class="line"><span>${safe.addrLabel1}</span><span class="mono">${safe.addrVal1}</span></div>
+    <div class="line"><span>${safe.addrLabel2}</span><span class="mono">${safe.addrVal2}</span></div>
+    <div class="line"><span>Cooperado:</span><span class="mono">${safe.cooperado}</span></div>
+    <div class="line"><span>Forma pgto:</span><span class="mono">${safe.formaPgto}</span></div>
+    ${safe.atendente ? `<div class="line"><span>Atendente:</span><span class="mono">${safe.atendente}</span></div>` : ``}
+
+    <hr>
+    <div class="line"><span>Valor do serviço:</span><span class="mono">R$ ${safe.valor}</span></div>
+    <div class="line big"><span>TOTAL:</span><span class="mono">R$ ${safe.valor}</span></div>
 
     <hr>
     <div class="center tiny">
-      Emitido em <span class="mono">${emitData}</span> às <span class="mono">${emitHora}</span><br>
-      Recebido por: <span class="mono">${dados.recebidoPor}</span>
+      Emitido em <span class="mono">${emitData}</span> às <span class="mono">${emitHora}</span>
+    </div>
+
+    <div class="qr-wrap">
+      <div class="qr-title">AVALIE A COOPEX NO GOOGLE</div>
+      <div id="qrcode"></div>
+      <div class="qr-foot mono">${reviewUrl}</div>
     </div>
 
     <div class="actions">
@@ -1904,14 +1945,137 @@
       <button class="btn alt" onclick="window.close && window.close()">Fechar</button>
     </div>
   </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+  <script>
+    (function(){
+      try{
+        var el = document.getElementById('qrcode');
+        if(!el){ return; }
+        if(window.QRCode){
+          new QRCode(el, { text: ${json.dumps("https://g.page/r/CY6ffwOT76pNEBM/review")}, width: 118, height: 118, correctLevel: QRCode.CorrectLevel.M });
+        }else{
+          el.innerHTML = '<div style="font-size:11px;text-align:center;">(QR indisponível)</div>';
+        }
+      }catch(e){}
+    })();
+  <\/script>
 </body>
 </html>`;
+    }
 
-        window.__printHtmlTM20X(html);
+    function __openCupomOverlay(){
+      var ov = document.getElementById('cupomOverlay');
+      if(!ov) return;
+      ov.style.display = 'flex';
+      document.body.classList.add('locked');
+    }
+    function __closeCupomOverlay(){
+      var ov = document.getElementById('cupomOverlay');
+      if(!ov) return;
+      ov.style.display = 'none';
+      document.body.classList.remove('locked');
+      // reset form
+      var form = document.getElementById('cupomEditForm');
+      if(form) form.style.display = 'none';
+    }
+
+    function __showCupomEditForm(dados){
+      var form = document.getElementById('cupomEditForm');
+      if(!form) return;
+      form.style.display = 'block';
+
+      var inpCliente = document.getElementById('cupomCliente');
+      var inpColeta = document.getElementById('cupomColeta');
+      var inpEntrega = document.getElementById('cupomEntrega');
+      var inpAt = document.getElementById('cupomAtendente');
+
+      if(inpCliente) inpCliente.value = dados?.cliente || '';
+      if(inpColeta)  inpColeta.value  = dados?.endereco || '';
+      if(inpEntrega) inpEntrega.value = ''; // bairro original geralmente não é endereço completo
+      if(inpAt)      inpAt.value      = '';
+    }
+
+    // Botão na tabela chama isso
+    function imprimirCupom(btn){
+      try{
+        if(!btn || !btn.dataset){ return; }
+        __cupomTmpDados = {
+          id: btn.dataset.id || '-',
+          idPad: btn.dataset.idpad || String(btn.dataset.id || '-'),
+          cliente: btn.dataset.cliente || '-',
+          bairro: btn.dataset.bairro || '-',
+          endereco: btn.dataset.endereco || '-',
+          valor: btn.dataset.valor || '-',
+          data: btn.dataset.data || '-',
+          horaPedido: btn.dataset.horaPedido || '-',
+          horaAtribuida: btn.dataset.horaAtribuida || '-',
+          cooperado: btn.dataset.cooperado || '-',
+          formaPgto: btn.dataset.formaPgto || '-'
+        };
+
+        // abre overlay escolha
+        __openCupomOverlay();
       }catch(e){
         console.error(e);
-        alert('Não foi possível gerar o cupom.');
+        alert('Não foi possível preparar o cupom.');
       }
+    }
+
+    // Handlers do overlay (1x)
+    window.addEventListener('DOMContentLoaded', function(){
+      var btnNormal = document.getElementById('cupomPrintNormal');
+      var btnEdit = document.getElementById('cupomEditFirst');
+      var btnPrintEdited = document.getElementById('cupomPrintEdited');
+      var btnCancelEdit = document.getElementById('cupomCancelEdit');
+      var btnClose = document.getElementById('cupomClose');
+      var ov = document.getElementById('cupomOverlay');
+
+      if(btnClose) btnClose.addEventListener('click', function(){ __closeCupomOverlay(); });
+      if(ov) ov.addEventListener('click', function(e){
+        if(e.target === ov){ __closeCupomOverlay(); }
+      });
+
+      if(btnNormal) btnNormal.addEventListener('click', function(){
+        try{
+          if(!__cupomTmpDados) return;
+          var html = __buildCupomHtml(__cupomTmpDados, 'normal', {});
+          window.__printHtmlTM20X(html);
+          __closeCupomOverlay();
+        }catch(e){
+          console.error(e);
+          alert('Não foi possível imprimir.');
+        }
+      });
+
+      if(btnEdit) btnEdit.addEventListener('click', function(){
+        if(!__cupomTmpDados) return;
+        __showCupomEditForm(__cupomTmpDados);
+      });
+
+      if(btnCancelEdit) btnCancelEdit.addEventListener('click', function(){
+        var form = document.getElementById('cupomEditForm');
+        if(form) form.style.display = 'none';
+      });
+
+      if(btnPrintEdited) btnPrintEdited.addEventListener('click', function(){
+        try{
+          if(!__cupomTmpDados) return;
+          var edits = {
+            cliente: document.getElementById('cupomCliente')?.value || '',
+            coleta: document.getElementById('cupomColeta')?.value || '',
+            entrega: document.getElementById('cupomEntrega')?.value || '',
+            atendente: document.getElementById('cupomAtendente')?.value || ''
+          };
+          var html = __buildCupomHtml(__cupomTmpDados, 'editado', edits);
+          window.__printHtmlTM20X(html);
+          __closeCupomOverlay();
+        }catch(e){
+          console.error(e);
+          alert('Não foi possível imprimir.');
+        }
+      });
+    });
     }
   </script>
 
@@ -1919,421 +2083,107 @@
   <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
   <script>
     (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
-        try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
-      }
-      check();
-      setInterval(check, 4000);
-    })();
-  </script>
-
-
-<script id="tm20x_iframe_printer">
-  // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
-  window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
-    try{
-      var iframe = document.getElementById('tm20x_print_iframe');
-      if(!iframe){
-        iframe = document.createElement('iframe');
-        iframe.id = 'tm20x_print_iframe';
-        iframe.style.position='fixed';
-        iframe.style.right='0';
-        iframe.style.bottom='0';
-        iframe.style.width='0';
-        iframe.style.height='0';
-        iframe.style.border='0';
-        iframe.style.opacity='0';
-        iframe.style.pointerEvents='none';
-        document.body.appendChild(iframe);
-      }
-      var w = iframe.contentWindow;
-      var d = iframe.contentDocument || w.document;
-      d.open(); d.write(htmlDoc); d.close();
-      setTimeout(function(){
-        try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
-      }, 250);
-    }catch(e){
-      console.error(e);
-      alert('Erro ao imprimir o cupom.');
-    }
-  };
-</script>
-
-</body>'
-+'</html>';
-
-      // Preferência: imprimir via IFRAME (não precisa pop-up)
-      if (window.__printHtmlTM20X) {
-        window.__printHtmlTM20X(html);
-        return;
-      }
-
-      // Fallback: pop-up (se o navegador permitir)
-      try{
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var w = window.open(url, '_blank');
-        if(w && !w.closed){
-          setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 15000);
-          return;
-        }
-        try{ URL.revokeObjectURL(url); }catch(e){}
-      }catch(e){}
-
-      alert('Não foi possível abrir a impressão. Verifique pop-ups do navegador e a impressora TM-T20X.');
-    }
-
-    function abrirMapaTelaCheia() {
-      try {
-        var url = "{{ url_for('mapa_motoboys') }}";
-        var a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch (e) {
-        console.error(e);
-        showToast('<strong>Não foi possível abrir o mapa agora.</strong>');
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', function(){
-      var btnFull = document.getElementById('btnFullMap');
-      if (btnFull) btnFull.addEventListener('click', abrirMapaTelaCheia);
-    });
-  </script>
-
-  <!-- Leaflet -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
-
-  <!-- MarkerCluster -->
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
-
-  <script>
-    // ===== MAPA (SEM AGRUPAMENTO / COM LISTA + FILTRO) =====
-    window.addEventListener('DOMContentLoaded', function(){
-      var mapEl = document.getElementById('map-coopex');
-      if (!mapEl || typeof L === 'undefined') return;
-
-      var map = L.map('map-coopex', { zoomControl: true, preferCanvas: true }).setView([-5.7945, -35.211], 13);
-
-      // Tile COLORIDO e mais estável no Render
-      var tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd'
-      }).addTo(map);
-
-      // força recalcular tamanho (muito comum o mapa nascer "travado")
-      setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
-      setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 1200);
-
-      // marcador fino e pequeno
-      function makeMarker(lat, lng, tooltipHtml, online){
-        var color = online ? '#16a34a' : '#ef4444';
-        var m = L.circleMarker([lat,lng], {
-          radius: 4,
-          weight: 2,
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.85
-        }).addTo(map);
-        if (tooltipHtml){
-          m.bindTooltip(tooltipHtml, {direction:'top', sticky:true});
-        }
-        return m;
-      }
-
-      var markers = {}; // id -> marker
-      var lastData = [];
-      var currentFilter = 'all';
-
-      var selectedId = '';
-      var followMode = false;
-      var userInteracted = false;
-      var programmaticMove = false;
-
-      // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
-      map.on('mousedown dragstart zoomstart movestart', function(){
-        if (!programmaticMove){
-          userInteracted = true;
-          followMode = false; // parou de seguir ao mexer manualmente
-        }
-      });
-
-
-      var sel = document.getElementById('mapSearch');
-      var filterSel = document.getElementById('mapFilter');
-
-      function isOnline(p){
-        if (typeof p.online === 'boolean') return p.online;
-        if (typeof p.is_online === 'boolean') return p.is_online;
-        var s = String(p.status || '').toLowerCase();
-        return (s.includes('online') || s.includes('livre') || s.includes('corrida'));
-      }
-
-      function renderList(list){
-        if (!sel) return;
-        var keep = sel.value;
-        sel.innerHTML = '<option value="">🔍 Localizar motoboy…</option>';
-        list.forEach(function(p){
-          var opt = document.createElement('option');
-          opt.value = String(p.id);
-          opt.textContent = p.nome || ('Motoboy ' + p.id);
-          sel.appendChild(opt);
-        });
-        // mantém seleção se ainda existir
-        if (keep && Array.from(sel.options).some(function(o){ return o.value === keep; })){
-          sel.value = keep;
-        }
-      }
-
-      function renderMarkers(list){
-        var seen = new Set();
-
-        list.forEach(function(p){
-          var lat = p.lat, lng = p.lng;
-          if (typeof lat !== 'number' || typeof lng !== 'number') return;
-
-          seen.add(String(p.id));
-
-          var online = isOnline(p);
-          var statusTxt = online ? 'ONLINE' : 'OFFLINE';
-          var html = '<b>'+ (p.nome||'') +'</b>'
-                   + '<br><span style="font-weight:800">'+statusTxt+'</span>'
-                   + (p.ultima_atualizacao ? '<br><span style="opacity:.9">'+p.ultima_atualizacao+'</span>' : '')
-                   + (p.endereco ? '<br><span style="opacity:.9">'+p.endereco+'</span>' : '');
-
-          if (!markers[String(p.id)]){
-            markers[String(p.id)] = makeMarker(lat, lng, html, online);
-          } else {
-            markers[String(p.id)].setLatLng([lat,lng]);
-            markers[String(p.id)].setStyle({
-              color: online ? '#16a34a' : '#ef4444',
-              fillColor: online ? '#16a34a' : '#ef4444'
-            });
-            try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
-          }
-        });
-
-        // remove marcadores que sumiram
-        Object.keys(markers).forEach(function(k){
-          if(!seen.has(k)){
-            try{ map.removeLayer(markers[k]); }catch(e){}
-            delete markers[k];
-          }
-        });
-
-        
-        // Se estiver em modo seguir, acompanha a posição do cooperado selecionado (sem mudar o zoom)
-        try{
-          if (followMode && selectedId){
-            var sp = list.find(function(p){ return String(p.id) === String(selectedId); });
-            if (sp && typeof sp.lat === 'number' && typeof sp.lng === 'number'){
-              // panTo é mais suave e não força zoom; se quiser "grudar" mais, troque por setView mantendo zoom
-              map.panTo([sp.lat, sp.lng], { animate:true });
-            }
-          }
-        }catch(e){}
-
-// se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
-        try{
-          if (list.length && (!sel || !sel.value)){
-            var pts = list
-              .filter(function(p){ return (typeof p.lat==='number' && typeof p.lng==='number'); })
-              .map(function(p){ return [p.lat, p.lng]; });
-            if (pts.length && !selectedId && !userInteracted){
-              map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
-            }
-          }
-        }catch(e){}
-
-        setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 50);
-      }
-
-      function applyFilterAndRender(){
-        var list = lastData.slice();
-        if (currentFilter === 'online'){
-          list = list.filter(isOnline);
-        }
-        renderList(list);
-        renderMarkers(list);
-      }
-
-      if (filterSel){
-        filterSel.addEventListener('change', function(){
-          currentFilter = filterSel.value || 'all';
-          applyFilterAndRender();
-        });
-      }
-
-      if (sel){
-        sel.addEventListener('change', function(){
-          var id = sel.value;
-          selectedId = id || '';
-          if (!id) { followMode = false; return; }
-
-          // Ao selecionar: centraliza, aplica zoom e entra em modo seguir.
-          followMode = true;
-          userInteracted = false;
-
-          programmaticMove = true;
-          var p = lastData.find(function(x){ return String(x.id) === String(id); });
-          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') { programmaticMove = false; return; }
-
-          try{
-            map.setView([p.lat, p.lng], 16, { animate:true });
-            if (markers[String(p.id)]){
-              try{ markers[String(p.id)].openTooltip(); }catch(e){}
-            }
-          }catch(e){}
-          setTimeout(function(){ programmaticMove = false; }, 250);
-        });
-      }
-
-
-      // Botão: mapa em tela cheia
-      // Aqui o botão/atalho deve abrir a página dedicada (mapa_motoboys.html), sem forçar fullscreen dentro deste painel.
-      // O elemento #btnFullMap é um <a href="...">, então não precisamos interceptar clique.
-      var fullBtn = document.getElementById('btnFullMap');
-      if (fullBtn && fullBtn.tagName === 'BUTTON'){
-        fullBtn.addEventListener('click', function(){
-          window.open("{{ url_for('mapa_motoboys') }}", "_blank");
-        });
-      }
-
-async function atualizar(){
-        try{
-          const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
-            cache:'no-store',
-            headers:{'X-Requested-With':'fetch', 'Accept':'application/json'}
-          });
-          if(!r.ok) return;
-          const data = await r.json();
-          if(!Array.isArray(data)) return;
-          lastData = data;
-          applyFilterAndRender();
-        }catch(e){}
-      }
-
-      atualizar();
-      setInterval(atualizar, 5000);
-    });
-  </script>
-
-  <!-- SOCORRO (áudio) -->
-  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
-  <script>
-    (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
-        try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
-      }
-      check();
-      setInterval(check, 4000);
-    })();
-  </script>
-
-
-  <!-- SOCORRO (persistente até clicar no X) -->
-  <div id="socorro-bar" style="display:none" class="socorro-bar" role="alert" aria-live="assertive">
-    <div class="socorro-left">
-      <div class="socorro-title">⚠️ SOCORRO <span id="socorro-count" class="socorro-count">0</span></div>
-      <div id="socorro-msg" class="socorro-msg"></div>
-    </div>
-    <button id="socorro-x" class="socorro-x" type="button" title="Marcar como lido">×</button>
-  </div>
-
-  <script>
-    (function socorroPollingReal(){
-      const audio = document.getElementById('som-socorro') || document.getElementById('socorroAudio') || document.getElementById('som-pendente');
       const bar = document.getElementById('socorro-bar');
       const msgEl = document.getElementById('socorro-msg');
       const countEl = document.getElementById('socorro-count');
       const btnX = document.getElementById('socorro-x');
 
-      let currentId = null;
-      let lastPlayedId = null;
+      // áudio real do seu HTML (mantém compatibilidade com versões antigas)
+      const audio = document.getElementById('som-socorro') || document.getElementById('socorroAudio');
+      if(audio){ audio.loop = true; }
 
-      function show(data){
-        if(!bar || !msgEl || !countEl) return;
-        bar.style.display = 'flex';
-        countEl.textContent = String(data.count || 0);
-        msgEl.textContent = (data.cooperado||'') + ' — ' + (data.mensagem||'') + (data.momento ? (' · ' + data.momento) : '');
-      }
-      function hide(){
-        if(!bar) return;
-        bar.style.display = 'none';
-        if(msgEl) msgEl.textContent = '';
-        if(countEl) countEl.textContent = '0';
-      }
+      let visible = false;
+      let lastKey = null; // evita repetir o mesmo aviso
 
-      async function check(){
+      async function marcarLido(){
         try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            currentId = data.id || null;
-            show(data);
+          await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ ok:true })
+          });
+        }catch(e){}
+      }
 
-            if(currentId && currentId !== lastPlayedId){
-              lastPlayedId = currentId;
-              try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            }
-          }else{
-            currentId = null;
-            hide();
+      function pararSom(){
+        try{
+          if(audio){
+            audio.pause();
+            audio.currentTime = 0;
+            audio.loop = false;
           }
         }catch(e){}
       }
 
+      function mostrarSocorro(data){
+        const nome = (data && (data.cooperado || data.nome || '') || '').trim();
+        const msg  = (data && (data.mensagem || data.msg || '') || '').trim();
+
+        const composed = (nome ? (nome + (msg ? ' — ' : '')) : '') + (msg || 'Solicitação de socorro');
+
+        if(msgEl) msgEl.textContent = composed;
+        if(countEl) countEl.textContent = String(data?.total ?? data?.count ?? 1);
+
+        if(bar){
+          bar.style.display = 'flex';
+          visible = true;
+        }
+
+        try{
+          if(audio){
+            audio.loop = true;
+            audio.currentTime = 0;
+            const p = audio.play();
+            if(p && typeof p.catch === 'function'){ p.catch(()=>{}); }
+          }
+        }catch(e){}
+      }
+
+      function esconderSocorro(){
+        if(bar) bar.style.display = 'none';
+        visible = false;
+        pararSom();
+        marcarLido();
+      }
+
       if(btnX){
-        btnX.addEventListener('click', async ()=>{
-          if(!currentId) return;
-          try{
-            const r = await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({id: currentId})
-            });
-            if(r.ok){
-              await check();
-            }
-          }catch(e){}
+        btnX.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          esconderSocorro();
         });
+      }
+
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', { cache:'no-store' });
+          if(!r.ok) return;
+
+          const data = await r.json();
+          const key = JSON.stringify([data?.novo, data?.id, data?.cooperado, data?.mensagem, data?.total]);
+
+          if(data && data.novo){
+            // só dispara novamente se mudou
+            if(key !== lastKey){
+              lastKey = key;
+              mostrarSocorro(data);
+            }else if(visible){
+              // garante que a barra fique visível mesmo se já estava
+              if(bar) bar.style.display = 'flex';
+            }
+          }else{
+            // se servidor disser que não tem mais socorro, fecha
+            if(visible){
+              esconderSocorro();
+            }
+            lastKey = key;
+          }
+        }catch(e){}
       }
 
       check();
       setInterval(check, 4000);
-    })();
-  </script>
+    })();</script>
 
 
 <script id="tm20x_iframe_printer">
@@ -2366,6 +2216,51 @@ async function atualizar(){
     }
   };
 </script>
+
+
+  <!-- CUPOM: escolher imprimir normal ou editar -->
+  <div id="cupomOverlay" style="position:fixed;inset:0;background:rgba(8,12,24,.78);display:none;align-items:center;justify-content:center;z-index:4000;backdrop-filter:blur(3px);">
+    <div class="modal" style="width:min(620px,94vw);">
+      <header id="cupomHeader">Cupom / Comprovante</header>
+      <div class="content" id="cupomContent">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="font-weight:900;">Como você quer imprimir?</div>
+          <div class="row">
+            <button type="button" class="btn" id="cupomPrintNormal">Imprimir normal</button>
+            <button type="button" class="btn alt" id="cupomEditFirst">Editar antes de imprimir</button>
+          </div>
+          <div class="small">Dica: “Editar” permite ajustar cliente e informar Coleta/Entrega (endereços) e atendente.</div>
+        </div>
+        <div id="cupomEditForm" style="display:none;margin-top:14px;">
+          <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+            <div class="field">
+              <label>Cliente (editável)</label>
+              <input id="cupomCliente" type="text" placeholder="Nome do cliente">
+            </div>
+            <div class="field">
+              <label>Coleta (endereço)</label>
+              <input id="cupomColeta" type="text" placeholder="Endereço de coleta">
+            </div>
+            <div class="field">
+              <label>Entrega (endereço)</label>
+              <input id="cupomEntrega" type="text" placeholder="Endereço de entrega">
+            </div>
+            <div class="field">
+              <label>Atendente</label>
+              <input id="cupomAtendente" type="text" placeholder="Nome do atendente (opcional)">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;">
+            <button type="button" class="btn alt" id="cupomCancelEdit">Cancelar</button>
+            <button type="button" class="btn" id="cupomPrintEdited">Imprimir (com edição)</button>
+          </div>
+        </div>
+      </div>
+      <footer style="display:flex;justify-content:center;">
+        <button type="button" class="ok" id="cupomClose">Fechar</button>
+      </footer>
+    </div>
+  </div>
 
 </body>
 </html>

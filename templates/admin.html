@@ -410,68 +410,16 @@
     }
     .map-full-btn:hover{filter:brightness(1.08)}
 
-    
-    .map-hero{ position:relative; padding:0; }
-    .mapbar{
-      position:absolute;
-      left:14px; right:14px; top:12px;
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      background:rgba(3, 7, 18, .35);
-      border:1px solid rgba(255,255,255,.14);
-      backdrop-filter: blur(8px);
-      z-index: 500;
-    }
-    .mapbar-left, .mapbar-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .maptag{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.10);
-      color:#fff;
-      font-weight:900;
-      font-size:.86rem;
-      white-space:nowrap;
-    }
-    .map-mini{
-      appearance:none;
-      border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.10);
-      color:#fff;
-      border-radius:12px;
-      padding:9px 12px;
-      font-size:.92rem;
-      font-weight:900;
-      cursor:pointer;
-      white-space:nowrap;
-      outline:none;
-    }
-    .map-mini:focus{ box-shadow:0 0 0 3px rgba(255,255,255,.12); }
-    .map-search-mini{ min-width:260px; }
-    .map-full{ background:rgba(255,255,255,.14); }
-    .map-mini option{ color:#0b1220; }
-
     #map-coopex{
       width:100%;
-      height: clamp(520px, 68vh, 820px);
-      border-radius: 18px;
+      height:68vh;
+      border-radius:16px;
       overflow:hidden;
-      box-shadow:0 14px 34px rgba(0,0,0,.22);
+      box-shadow:0 10px 26px rgba(0,0,0,.18);
       background:#020617;
       border:1px solid rgba(255,255,255,.10);
     }
-
-    /* Ícones do motoboy (pin) - escala controlada por JS (zoom) */
-    .moto-pin{
-      width:36px; height:36px;
-      transform-origin:center;
-      filter: drop-shadow(0 8px 10px rgba(0,0,0,.35));
-      transition: transform .15s ease;
-      transform: scale(var(--motoScale, 1));
-    }
-@media (min-height:900px){ #map-coopex{height:390px;} }
+    @media (min-height:900px){ #map-coopex{height:390px;} }
 
     /* ===== FILTROS ===== */
     .filters-bar{
@@ -841,7 +789,17 @@
   height: calc(100vh - 120px) !important;
 }
 
-</style>
+
+    /* Compactação do topo do mapa (mais área útil) */
+    .map-header{padding:10px 12px !important; gap:10px !important;}
+    .map-header-main{gap:8px !important;}
+    .map-legend-bar{padding:6px 10px !important; gap:10px !important; border-radius:999px !important;}
+    .legend-item{font-size:12px !important;}
+    .map-header-actions{gap:8px !important; flex-wrap:nowrap !important;}
+    .map-search, .map-filter{height:38px !important; padding:8px 12px !important; font-size:13px !important; border-radius:12px !important;}
+    .map-full-btn{height:38px !important; padding:8px 14px !important; border-radius:12px !important;}
+
+  </style>
 </head>
 
 <body>
@@ -968,28 +926,34 @@
         </div>
 
         <!-- MAPA -->
-        <div class="map-wrapper map-hero" style="background:linear-gradient(90deg, rgba(9, 33, 120, .95), rgba(15,53,181,.92));">
-          <div class="mapbar" aria-label="Controles do mapa">
-            <div class="mapbar-left">
-              <span class="maptag"><span class="legend-dot on"></span> Online</span>
-              <span class="maptag"><span class="legend-dot off"></span> Offline</span>
-              <select id="mapFilter" class="map-mini" title="Filtrar">
-                <option value="all">Ver todos</option>
-                <option value="online">Só online</option>
-              </select>
+        <div class="map-wrapper" style="background:linear-gradient(90deg, rgba(9, 33, 120, .95), rgba(15,53,181,.92));">
+          <div class="map-header">
+            <div class="map-header-main">
+              <strong style="color:#fff">Mapa em tempo real</strong>
+
+              <div class="map-legend-bar">
+                <div class="legend-item"><span class="legend-dot on"></span> Online (app ligado)</div>
+                <div class="legend-item"><span class="legend-dot off"></span> Offline / desconectado</div>
+              </div>
             </div>
 
-            <div class="mapbar-right">
-              <select id="mapSearch" class="map-mini map-search-mini" title="Localizar motoboy">
+            <div class="map-header-actions">
+              <select id="mapSearch" class="map-search">
                 <option value="">🔍 Localizar motoboy…</option>
               </select>
 
-              <button id="btnFullMap" class="map-mini map-full" type="button">Tela cheia</button>
+              <select id="mapFilter" class="map-filter">
+                <option value="all">👁️ Ver todos</option>
+                <option value="online">🟢 Só online</option>
+              </select>
+
+              <button id="btnFullMap" class="map-full-btn" type="button">Mapa em tela cheia</button>
             </div>
           </div>
 
           <div id="map-coopex"></div>
         </div>
+
         <!-- FILTROS -->
         <div class="filters-bar">
           <div class="filters-top">
@@ -1495,17 +1459,18 @@
       sel.addEventListener('blur', ()=> salvar(), { once:true });
     });
 
-    async function salvarInlineEntrega(idEntrega, payload){
+    function salvarInlineEntrega(idEntrega, payload){
       try{
-        const r = await fetch(`/api/entregas/${idEntrega}/inline`, {
+        return fetch(`/api/entregas/${idEntrega}/inline`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
           body: JSON.stringify(payload || {})
-        });
-        if(!r.ok) return null;
-        return await r.json();
+        }).then(function(r){
+          if(!r.ok) return null;
+          return r.json().catch(function(){ return null; });
+        }).catch(function(){ return null; });
       }catch(e){
-        return null;
+        return Promise.resolve(null);
       }
     }
 
@@ -1549,10 +1514,11 @@
       el.parentNode.replaceChild(sel, el);
       sel.focus();
 
-      async function salvar(){
+      function salvar(){
         const st = sel.value || 'pendente';
-        const res = await salvarInlineEntrega(idEntrega, {status: st});
-        const span = document.createElement('span');
+        salvarInlineEntrega(idEntrega, {status: st}).then(function(res){
+          if(!res) return;
+          const span = document.createElement('span');
         span.className='status-editable';
         span.dataset.id=idEntrega;
         span.dataset.status=st;
@@ -1565,6 +1531,7 @@
         }else{
           showToast('<strong>Não foi possível atualizar o status agora.</strong>');
         }
+        });
       }
 
       sel.addEventListener('change', salvar);
@@ -1598,10 +1565,11 @@
       el.parentNode.replaceChild(sel, el);
       sel.focus();
 
-      async function salvar(){
+      function salvar(){
         const sp = sel.value || 'pendente';
-        const res = await salvarInlineEntrega(idEntrega, {status_pagamento: sp});
-        const span = document.createElement('span');
+        salvarInlineEntrega(idEntrega, {status_pagamento: sp}).then(function(res){
+          if(!res) return;
+          const span = document.createElement('span');
         span.className='pagamento-editable';
         span.dataset.id=idEntrega;
         span.dataset.statusPagamento=sp;
@@ -1614,86 +1582,39 @@
         }else{
           showToast('<strong>Não foi possível atualizar o pagamento agora.</strong>');
         }
+        });
       }
 
       sel.addEventListener('change', salvar);
       sel.addEventListener('blur', ()=> salvar(), {once:true});
     });
 
-    async function salvarValorEntrega(idEntrega, novo){
+    function salvarValorEntrega(idEntrega, novo){
       try{
-        const r1 = await fetch(`/api/entregas/${idEntrega}/valor`, {
+        return fetch(`/api/entregas/${idEntrega}/valor`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
           body: JSON.stringify({ valor: novo })
+        }).then(function(r1){
+          if(r1 && r1.ok) return true;
+          // fallback para rota html
+          var fd = new FormData();
+          fd.append('valor', novo);
+          fd.append('valor_servico', novo);
+          fd.append('atualizar_valor', '1');
+          fd.append('notificar_painel', '1');
+          return fetch(`/editar_entrega/${idEntrega}`, {
+            method:'POST',
+            body: fd,
+            headers:{'X-Requested-With':'fetch'}
+          }).then(function(r2){ return !!(r2 && r2.ok); }).catch(function(){ return false; });
+        }).catch(function(){
+          return false;
         });
-        if(r1.ok) return true;
-      }catch(e){}
-
-      try{
-        const fd = new FormData();
-        fd.append('valor', novo);
-        fd.append('valor_servico', novo);
-        fd.append('atualizar_valor', '1');
-        fd.append('notificar_painel', '1');
-
-        const r2 = await fetch(`/editar_entrega/${idEntrega}`, {
-          method:'POST',
-          body: fd,
-          headers:{'X-Requested-With':'fetch'}
-        });
-        if(r2.ok) return true;
-      }catch(e){}
-
-      return false;
-    }
-
-    document.addEventListener('click', (ev)=>{
-      const el = ev.target.closest?.('.value-editable');
-      if(!el) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const idEntrega = el.dataset?.id || '';
-      if(!idEntrega) return;
-
-      let valorAtual = el.dataset.valor || '';
-      if(!valorAtual) valorAtual = String(parseNumberFromBRL(el.textContent || '')).toFixed(2);
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'value-input';
-      input.inputMode = 'decimal';
-      input.value = String(valorAtual).replace('.', ',');
-
-      el.parentNode.replaceChild(input, el);
-      input.focus();
-      input.select();
-
-      async function finalizar(shouldSave){
-        const raw = (input.value || '').trim();
-        let num = parseNumberFromBRL(raw);
-        if(!Number.isFinite(num) || num <= 0) num = parseNumberFromBRL(valorAtual);
-        const novo = num.toFixed(2);
-
-        const span = document.createElement('span');
-        span.className = 'value-editable';
-        span.dataset.id = idEntrega;
-        span.dataset.valor = novo;
-        span.title = 'Clique para alterar o valor';
-        span.textContent = formatBRLFromNumberLike(novo);
-
-        input.parentNode.replaceChild(span, input);
-        if(!shouldSave) return;
-
-        const ok = await salvarValorEntrega(idEntrega, novo);
-        if(ok){
-          showToast('<strong>Valor atualizado.</strong>');
-        }else{
-          window.location.href = `/editar_entrega/${idEntrega}`;
-        }
+      }catch(e){
+        return Promise.resolve(false);
       }
+    }
 
       input.addEventListener('keydown', (e)=>{
         if(e.key === 'Enter'){ e.preventDefault(); finalizar(true); }
@@ -2085,64 +2006,56 @@ function abrirMapaTelaCheia() {
 
       var map = L.map('map-coopex', { zoomControl: true, preferCanvas: true }).setView([-5.7945, -35.211], 13);
 
-      // Tile MapTiler (com chave) — estilo streets/outdoor
-      const MAPTILER_KEY = "bSeKIro6dKQKEDRrIUee"; // sua chave MapTiler
+            // Tile MapTiler (Outdoor) - estável e com estilo realista
+      const MAPTILER_KEY = 'bSeKIro6dKQKEDRrIUee';
       var tile = L.tileLayer(
         `https://api.maptiler.com/maps/outdoor-v4/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`,
-        { tileSize: 512, zoomOffset: -1, maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; MapTiler' }
+        {
+          maxZoom: 20,
+          tileSize: 512,
+          zoomOffset: -1,
+          attribution: '&copy; OpenStreetMap contributors &copy; MapTiler'
+        }
       ).addTo(map);
+
 
       // força recalcular tamanho (muito comum o mapa nascer "travado")
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 1200);
 
-      __applyMotoScale();
-      map.on('zoomend', __applyMotoScale);
-
-      // Ícone do motoboy (pin)
-      function __motoIcon(online){
-        var color = online ? '#16a34a' : '#ef4444';
-        var html = ''
-          + '<svg class="moto-pin" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-          +   '<path d="M32 2c-9.94 0-18 8.06-18 18 0 13.5 18 42 18 42s18-28.5 18-42c0-9.94-8.06-18-18-18z" fill="'+color+'" opacity="0.95"/>'
-          +   '<circle cx="32" cy="20" r="8" fill="white" opacity="0.95"/>'
-          +   '<path d="M24 20c2-4 14-4 16 0" fill="none" stroke="'+color+'" stroke-width="3" stroke-linecap="round"/>'
-          + '</svg>';
-        return L.divIcon({ className:'', html: html, iconSize:[36,36], iconAnchor:[18,34], tooltipAnchor:[0,-22] });
-      }
-
-      // Aplica escala dos pins conforme zoom (parece mais "real" ao andar na rua)
-      function __applyMotoScale(){
-        try{
-          var z = map.getZoom();
-          var s = Math.min(1.55, Math.max(0.90, 0.90 + (z - 13) * 0.10));
-          document.documentElement.style.setProperty('--motoScale', String(s.toFixed(2)));
-        }catch(e){}
-      }
-
-      // marcador (pin)
+      // marcador fino e pequeno
       function makeMarker(lat, lng, tooltipHtml, online){
-        var m = L.marker([lat,lng], { icon: __motoIcon(online), riseOnHover:true }).addTo(map);
+        var color = online ? '#16a34a' : '#ef4444';
+        var m = L.circleMarker([lat,lng], {
+          radius: 4,
+          weight: 2,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.85
+        }).addTo(map);
         if (tooltipHtml){
-          try{ m.bindTooltip(tooltipHtml, {direction:'top', sticky:false, opacity:0.95}); }catch(e){}
+          m.bindTooltip(tooltipHtml, {direction:'top', sticky:true});
         }
-        m.__online = !!online;
         return m;
       }
-var markers = {}; // id -> marker
+
+      var markers = {}; // id -> marker
       var lastData = [];
       var currentFilter = 'all';
 
       var selectedId = '';
       var userInteracted = false;
       var programmaticMove = false;
-      var followSelected = false;
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
       map.on('zoomstart movestart', function(){
+        // não interrompe o follow quando o movimento foi programático
         if (!programmaticMove) userInteracted = true;
       });
-      map.on('click', function(){ if (!programmaticMove) followSelected = false; });
+      map.on('click', function(){
+        userInteracted = true; // para de seguir quando o admin clicar no mapa
+      });
+
 
       var sel = document.getElementById('mapSearch');
       var filterSel = document.getElementById('mapFilter');
@@ -2190,12 +2103,11 @@ var markers = {}; // id -> marker
             markers[String(p.id)] = makeMarker(lat, lng, html, online);
           } else {
             markers[String(p.id)].setLatLng([lat,lng]);
+            markers[String(p.id)].setStyle({
+              color: online ? '#16a34a' : '#ef4444',
+              fillColor: online ? '#16a34a' : '#ef4444'
+            });
             try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
-            if (markers[String(p.id)].__online !== !!online){
-              markers[String(p.id)].setIcon(__motoIcon(online));
-              markers[String(p.id)].__online = !!online;
-            }
-try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
           }
         });
 
@@ -2229,6 +2141,20 @@ try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
         }
         renderList(list);
         renderMarkers(list);
+
+        // FOLLOW: se escolheu um motoboy, manter a câmera acompanhando até o admin clicar no mapa
+        if (selectedId && !userInteracted){
+          var p = lastData.find(function(x){ return String(x.id) === String(selectedId); });
+          if (p && typeof p.lat === 'number' && typeof p.lng === 'number'){
+            try{
+              programmaticMove = true;
+              map.setView([p.lat, p.lng], Math.max(map.getZoom() || 16, 16), {animate:true});
+              setTimeout(function(){ programmaticMove = false; }, 200);
+            }catch(e){
+              programmaticMove = false;
+            }
+          }
+        }
       }
 
       if (filterSel){
@@ -2242,52 +2168,76 @@ try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
+          userInteracted = false; // volta a seguir automaticamente
           if (!id) return;
           programmaticMove = true;
-          followSelected = true;
-          userInteracted = false;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
           if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
 
           try{
-            map.setView([p.lat, p.lng], 16, {animate:true});
+            map.setView([p.lat, p.lng], 16);
             if (markers[String(p.id)]){
               try{ markers[String(p.id)].openTooltip(); }catch(e){}
             }
           }catch(e){}
-          setTimeout(function(){ programmaticMove = false; }, 450);
         });
       }
 
 
-      // Botão: mapa em tela cheia (abre a página dedicada)
+      // Botão: mapa em tela cheia (tenta Fullscreen API; se falhar, usa CSS fullscreen)
       var fullBtn = document.getElementById('btnFullMap');
-      function abrirMapaTelaCheia(){
+      function toggleFull(){
         try{
-          var url = "{{ url_for('mapa_motoboys') }}";
-          var w = window.open(url, "_blank", "noopener,noreferrer");
-          if(!w) { window.location.href = url; }
+          var card = mapEl.closest('.map-card') || mapEl.parentElement;
+          if (!card) card = mapEl;
+          var goFull = !document.fullscreenElement;
+          if (goFull){
+            if (card.requestFullscreen){
+              card.requestFullscreen().then(function(){
+                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 400);
+              }).catch(function(){
+                card.classList.add('fullscreen');
+                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+              });
+            }else{
+              card.classList.add('fullscreen');
+              setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+            }
+          }else{
+            if (document.exitFullscreen){
+              document.exitFullscreen().catch(function(){});
+            }
+            card.classList.remove('fullscreen');
+            setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
+          }
         }catch(e){}
       }
-      if(fullBtn){
-        fullBtn.addEventListener('click', function(e){
-          e.preventDefault();
-          abrirMapaTelaCheia();
+      if (fullBtn){
+        fullBtn.addEventListener('click', function(ev){
+          ev.preventDefault();
+          toggleFull();
         });
       }
+      document.addEventListener('fullscreenchange', function(){
+        try{ setTimeout(function(){ map.invalidateSize(true); }, 200); }catch(e){}
+      });
 
-function atualizar(){
+      function atualizar(){
         try{
-          const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
+          return fetch('{{ url_for("mapa_motoboys") }}?format=json', {
             cache:'no-store',
-            headers:{'X-Requested-With':'fetch', 'Accept':'application/json'}
-          });
-          if(!r.ok) return;
-          const data = await r.json();
-          if(!Array.isArray(data)) return;
-          lastData = data;
-          applyFilterAndRender();
-        }catch(e){}
+            headers:{'X-Requested-With':'fetch','Accept':'application/json'}
+          }).then(function(r){
+            if(!r || !r.ok) return null;
+            return r.json().catch(function(){ return null; });
+          }).then(function(data){
+            if(!Array.isArray(data)) return;
+            lastData = data;
+            applyFilterAndRender();
+          }).catch(function(){});
+        }catch(e){
+          return Promise.resolve();
+        }
       }
 
       atualizar();
@@ -2300,18 +2250,25 @@ function atualizar(){
   <script>
     (function socorroPolling(){
       const audio = document.getElementById('socorroAudio');
-      async function check(){
+      function check(){
         try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
+          return fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'})
+            .then(function(r){
+              if(!r || !r.ok) return null;
+              return r.json().catch(function(){ return null; });
+            })
+            .then(function(data){
+              if(data && data.novo){
+                try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+                try{
+                  showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+                }catch(e){}
+              }
+            })
+            .catch(function(){});
+        }catch(e){
+          return Promise.resolve();
+        }
       }
       check();
       setInterval(check, 4000);
@@ -2352,38 +2309,43 @@ function atualizar(){
         if(countEl) countEl.textContent = '0';
       }
 
-      async function check(){
+      function check(){
         try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            currentId = data.id || null;
-            show(data);
-
-            if(currentId && currentId !== lastPlayedId){
-              lastPlayedId = currentId;
-              try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            }
-          }else{
-            currentId = null;
-            hide();
-          }
-        }catch(e){}
+          return fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'})
+            .then(function(r){
+              if(!r || !r.ok) return null;
+              return r.json().catch(function(){ return null; });
+            })
+            .then(function(data){
+              if(data && data.novo){
+                // monta/atualiza modal
+                currentId = data.id || currentId;
+                show(data);
+                if(data && data.tocar){
+                  try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+                }
+              }else{
+                currentId = null;
+                hide();
+              }
+            })
+            .catch(function(){});
+        }catch(e){
+          return Promise.resolve();
+        }
       }
 
       if(btnX){
-        btnX.addEventListener('click', async ()=>{
+        btnX.addEventListener('click', function(){
           if(!currentId) return;
           try{
-            const r = await fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
+            fetch('{{ url_for("admin_socorro_marcar_lido") }}', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
               body: JSON.stringify({id: currentId})
-            });
-            if(r.ok){
-              await check();
-            }
+            }).then(function(r){
+              if(r && r.ok){ return check(); }
+            }).catch(function(){});
           }catch(e){}
         });
       }
@@ -2507,52 +2469,35 @@ function atualizar(){
         document.body.appendChild(iframe);
       }
 
-      // Evita travar rolagem caso algum modal tenha deixado body.locked
-      document.body.classList.remove('locked');
+      var doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(htmlDoc);
+      doc.close();
 
-      iframe.onload = null; // reset
-      iframe.onload = function(){
+      // Aguarda carregar imagens (logo + QR) antes de imprimir
+      var tries = 0;
+      function readyToPrint(){
+        tries++;
         try{
-          var w = iframe.contentWindow;
-          var d = iframe.contentDocument || w.document;
-
-          // Esperar imagens (logo/QR) carregarem antes de imprimir
-          var imgs = Array.from(d.images || []);
-          if(!imgs.length){
-            setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); } }, 120);
+          var imgs = Array.prototype.slice.call(doc.images || []);
+          var pending = imgs.filter(function(im){ return !im.complete; });
+          if(pending.length === 0 || tries > 30){
+            try{ iframe.contentWindow.focus(); }catch(e){}
+            try{ iframe.contentWindow.print(); }catch(e){}
             return;
           }
-
-          var done = 0;
-          function finish(){
-            // pequeno delay para layout estabilizar
-            setTimeout(function(){
-              try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
-            }, 180);
-          }
-          function mark(){
-            done++;
-            if(done >= imgs.length) finish();
-          }
-          imgs.forEach(function(img){
-            if(img.complete) return mark();
-            img.addEventListener('load', mark, {once:true});
-            img.addEventListener('error', mark, {once:true});
-          });
-
-          // fallback: imprime mesmo assim depois de 1.2s
-          setTimeout(function(){
-            if(done < imgs.length) finish();
-          }, 1200);
-
         }catch(e){
-          console.error(e);
-          try{
-            var w2 = iframe.contentWindow;
-            setTimeout(function(){ try{ w2.focus(); w2.print(); }catch(_){} }, 200);
-          }catch(_){}
+          try{ iframe.contentWindow.print(); }catch(e){}
+          return;
         }
-      };
+        setTimeout(readyToPrint, 120);
+      }
+      setTimeout(readyToPrint, 120);
+    }catch(e){
+      console.error(e);
+      alert('Não foi possível enviar para impressão. Verifique a impressora TM-T20X.');
+    }
+  };
 
       var w = iframe.contentWindow;
       var d = iframe.contentDocument || w.document;

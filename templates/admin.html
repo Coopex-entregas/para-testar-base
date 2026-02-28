@@ -1158,7 +1158,8 @@
                         data-hora_atribuida="{{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}"
                         data-cooperado="{{ e.cooperado.nome if e.cooperado else 'Sem Cooperado' }}"
                         data-pagamento="{{ e.pagamento|e }}"
-                        onclick="imprimirCupom({{ e.id }}, this)">
+                        
+                        data-recebido="{{ (e.recebido_por if e.recebido_por is defined else \'\')|e }}"onclick="imprimirCupom({{ e.id }}, this)">
                         <svg viewBox="0 0 24 24" fill="#16a34a">
                           <path d="M19 8h-1V3c0-1.104-.896-2-2-2H8C6.896 1 6 1.896 6 3v5H5C2.794 8 1 9.794 1 12v6c0 2.206 1.794 4 4 4h2v-3h10v3h2c2.206 0 4-1.794 4-4v-6c0-2.206-1.794-4-4-4zM8 3h8v5H8V3zm8 14H8v-4h8v4z"/>
                         </svg>
@@ -1816,78 +1817,92 @@
       var inpEntrega = document.getElementById('cupomEntrega');
       var inpAt = document.getElementById('cupomAtendente');
 
+      var inpRec = document.getElementById('cupomRecebido');
       if(inpCliente) inpCliente.value = d?.cliente || '';
       if(inpColeta)  inpColeta.value  = d?.endereco || '';
       if(inpEntrega) inpEntrega.value = '';
       if(inpAt)      inpAt.value      = '';
+      if(inpRec)     inpRec.value     = d?.recebido || '';
     }
 
     function __buildCupomHtml(d, mode, edits){
       edits = edits || {};
       var logoUrl = "/static/logo_coopex.png";
       var reviewUrl = "https://g.page/r/CY6ffwOT76pNEBM/review";
-      var qrUrl = "https://chart.googleapis.com/chart?cht=qr&chs=170x170&chl=" + encodeURIComponent(reviewUrl);
+
+      // QR como IMAGEM (sem <script>) + fallback
+      var qrPrimary = "https://quickchart.io/qr?size=220&text=" + encodeURIComponent(reviewUrl);
+      var qrFallback = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(reviewUrl);
 
       var cliente = (mode === 'editado') ? (edits.cliente || d.cliente) : d.cliente;
       var atendente = (mode === 'editado') ? (edits.atendente || '') : '';
+      var recebido = (mode === 'editado') ? (edits.recebido || d.recebido || '') : (d.recebido || '');
       var coleta = (mode === 'editado') ? (edits.coleta || '') : '';
       var entrega = (mode === 'editado') ? (edits.entrega || '') : '';
 
-      var linhaColetaEntrega = '';
-      if(mode === 'editado'){
-        linhaColetaEntrega =
-          '<div class="row"><span class="k">COLETA:</span><span class="v">'+ __esc(coleta) +'</span></div>' +
-          '<div class="row"><span class="k">ENTREGA:</span><span class="v">'+ __esc(entrega) +'</span></div>';
-      }else{
-        linhaColetaEntrega =
-          '<div class="row"><span class="k">ENDEREÇO:</span><span class="v">'+ __esc(d.endereco) +'</span></div>' +
-          '<div class="row"><span class="k">BAIRRO:</span><span class="v">'+ __esc(d.bairro) +'</span></div>';
+      function row(label, value){
+        return '<div class="row"><div class="k">'+ __esc(label) +'</div><div class="v">'+ __esc(value || '-') +'</div></div>';
       }
 
-      var atendenteLinha = atendente ? ('<div class="row"><span class="k">ATENDENTE:</span><span class="v">'+ __esc(atendente) +'</span></div>') : '';
+      var blocoEndereco = '';
+      if(mode === 'editado'){
+        blocoEndereco += row('COLETA:', coleta || '-');
+        blocoEndereco += row('ENTREGA:', entrega || '-');
+      }else{
+        blocoEndereco += row('ENDEREÇO:', d.endereco || '-');
+        blocoEndereco += row('BAIRRO:', d.bairro || '-');
+      }
 
+      var atendenteLinha = atendente ? row('ATENDENTE:', atendente) : '';
+      var recebidoLinha = recebido ? row('RECEBIDO POR:', recebido) : '';
+
+      // Layout 2 colunas (rótulo esquerda / valor direita), com total bem alinhado
       var html =
         '<!doctype html><html><head><meta charset="utf-8">' +
         '<meta name="viewport" content="width=device-width, initial-scale=1">' +
         '<title>Cupom</title>' +
         '<style>' +
-        'html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;}' +
-        '.ticket{width:72mm; padding:6mm 4mm;}' +
+        'html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif; color:#000;}' +
+        '.ticket{width:80mm; padding:6mm 5mm;}' +
         '.center{text-align:center;}' +
-        '.logo{max-width:56mm; margin:0 auto 6px; display:block;}' +
-        '.h1{font-weight:800;font-size:14px;margin:2px 0;}' +
-        '.muted{font-size:11px; opacity:.85;}' +
+        '.logo{max-width:62mm; margin:0 auto 6px; display:block;}' +
+        '.title{font-weight:800;font-size:16px;margin:2px 0;}' +
+        '.sub{font-size:11px; opacity:.88;}' +
         '.hr{border-top:1px dashed #000; margin:8px 0;}' +
-        '.row{display:flex; gap:6px; font-size:12px; margin:3px 0;}' +
-        '.k{min-width:78px; font-weight:700;}' +
-        '.v{flex:1; word-break:break-word;}' +
-        '.total{font-size:14px;font-weight:800; margin-top:4px;}' +
-        '.qr{margin-top:10px;}' +
+        '.row{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; margin:3px 0;}' +
+        '.k{font-weight:700; flex:0 0 auto;}' +
+        '.v{font-weight:700; text-align:right; flex:1 1 auto; word-break:break-word;}' +
+        '.totalRow{display:flex; justify-content:space-between; align-items:flex-end; margin-top:6px; font-size:15px; font-weight:800;}' +
+        '.totalRow .v{font-size:16px;}' +
+        '.small{font-size:11px; opacity:.9;}' +
+        '.qrWrap{margin-top:10px; display:flex; flex-direction:column; align-items:center; gap:6px;}' +
+        '.qrImg{width:38mm;height:38mm; object-fit:contain;}' +
         '</style></head><body>' +
         '<div class="ticket">' +
           '<div class="center">' +
             '<img class="logo" src="'+ logoUrl +'" alt="COOPEX">' +
-            '<div class="h1">COOPEX ENTREGAS</div>' +
-            '<div class="muted">Comprovante de Entrega</div>' +
+            '<div class="title">CUPOM NÃO FISCAL</div>' +
+            '<div class="sub">Comprovante de Entrega</div>' +
           '</div>' +
           '<div class="hr"></div>' +
-          '<div class="row"><span class="k">PEDIDO:</span><span class="v">#'+ __esc(d.idPad) +'</span></div>' +
-          '<div class="row"><span class="k">DATA:</span><span class="v">'+ __esc(d.data) +'</span></div>' +
-          '<div class="row"><span class="k">H. PEDIDO:</span><span class="v">'+ __esc(d.horaPedido) +'</span></div>' +
-          '<div class="row"><span class="k">H. ATRIB.:</span><span class="v">'+ __esc(d.horaAtribuida) +'</span></div>' +
-          '<div class="row"><span class="k">CLIENTE:</span><span class="v">'+ __esc(cliente) +'</span></div>' +
-          linhaColetaEntrega +
-          '<div class="row"><span class="k">MOTOBOY:</span><span class="v">'+ __esc(d.cooperado) +'</span></div>' +
-          '<div class="row"><span class="k">PAGAMENTO:</span><span class="v">'+ __esc(d.formaPgto) +'</span></div>' +
+          row('PEDIDO:', '#'+ (d.idPad || d.id || '-') ) +
+          row('DATA:', d.data || '-') +
+          row('HORA:', d.horaPedido || '-') +
+          row('CLIENTE:', cliente || '-') +
+          blocoEndereco +
+          row('MOTOBOY:', d.cooperado || '-') +
+          row('FORMA PGTO:', d.formaPgto || '-') +
           atendenteLinha +
+          recebidoLinha +
           '<div class="hr"></div>' +
-          '<div class="center total">TOTAL: R$ '+ __esc(d.valorFmt) +'</div>' +
+          '<div class="totalRow"><div class="k">TOTAL:</div><div class="v">R$ '+ __esc(d.valorFmt || d.valor || '-') +'</div></div>' +
           '<div class="hr"></div>' +
-          '<div class="center muted">Avalie no Google</div>' +
-          '<div class="center qr"><img src="'+ qrUrl +'" alt="QR Avaliação" style="width:38mm;height:38mm"></div>' +
-          '<div class="center muted" style="margin-top:6px;">Obrigado por escolher a COOPEX</div>' +
+          '<div class="qrWrap">' +
+            '<div class="small"><strong>Avalie no Google</strong></div>' +
+            '<img class="qrImg" src="'+ qrPrimary +'" alt="QR Avaliação" onerror="this.onerror=null;this.src=\''+ qrFallback +'\';">' +
+            '<div class="small" style="text-align:center;">Obrigado por escolher a <strong>COOPEX</strong>!<br>Sua avaliação ajuda nosso serviço a melhorar.</div>' +
+          '</div>' +
         '</div>' +
-        '<script>window.onload=function(){ setTimeout(function(){ try{ window.print(); }catch(e){} }, 120); }<\/script>' +
         '</body></html>';
 
       return html;
@@ -1917,7 +1932,9 @@
           horaPedido: botao.dataset.hora_pedido || botao.dataset.horaPedido || '-',
           horaAtribuida: botao.dataset.hora_atribuida || botao.dataset.horaAtribuida || '-',
           cooperado: botao.dataset.cooperado || '-',
-          formaPgto: botao.dataset.pagamento || botao.dataset.formaPgto || '-'
+          formaPgto: botao.dataset.pagamento || botao.dataset.formaPgto || '-',
+          recebido: botao.dataset.recebido || ''
+        
         };
 
         __openCupomOverlay();
@@ -1969,7 +1986,8 @@
             cliente: (document.getElementById('cupomCliente')||{}).value || '',
             coleta: (document.getElementById('cupomColeta')||{}).value || '',
             entrega: (document.getElementById('cupomEntrega')||{}).value || '',
-            atendente: (document.getElementById('cupomAtendente')||{}).value || ''
+            atendente: (document.getElementById('cupomAtendente')||{}).value || '',
+            recebido: (document.getElementById('cupomRecebido')||{}).value || ''
           };
           var html = __buildCupomHtml(__cupomTmpDados, 'editado', edits);
           if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
@@ -2355,6 +2373,10 @@ function abrirMapaTelaCheia() {
               <label>Atendente</label>
               <input type="text" id="cupomAtendente" placeholder="Seu nome (atendente)" />
             </div>
+            <div class="field">
+              <label>Quem recebeu</label>
+              <input type="text" id="cupomRecebido" placeholder="Nome de quem recebeu" />
+            </div>
             <div class="field" style="grid-column:1/-1;">
               <label>Coleta (endereço)</label>
               <input type="text" id="cupomColeta" placeholder="Endereço de coleta" />
@@ -2438,12 +2460,69 @@ function abrirMapaTelaCheia() {
         iframe.style.pointerEvents='none';
         document.body.appendChild(iframe);
       }
+
+      // Evita travar rolagem caso algum modal tenha deixado body.locked
+      document.body.classList.remove('locked');
+
+      iframe.onload = null; // reset
+      iframe.onload = function(){
+        try{
+          var w = iframe.contentWindow;
+          var d = iframe.contentDocument || w.document;
+
+          // Esperar imagens (logo/QR) carregarem antes de imprimir
+          var imgs = Array.from(d.images || []);
+          if(!imgs.length){
+            setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); } }, 120);
+            return;
+          }
+
+          var done = 0;
+          function finish(){
+            // pequeno delay para layout estabilizar
+            setTimeout(function(){
+              try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
+            }, 180);
+          }
+          function mark(){
+            done++;
+            if(done >= imgs.length) finish();
+          }
+          imgs.forEach(function(img){
+            if(img.complete) return mark();
+            img.addEventListener('load', mark, {once:true});
+            img.addEventListener('error', mark, {once:true});
+          });
+
+          // fallback: imprime mesmo assim depois de 1.2s
+          setTimeout(function(){
+            if(done < imgs.length) finish();
+          }, 1200);
+
+        }catch(e){
+          console.error(e);
+          try{
+            var w2 = iframe.contentWindow;
+            setTimeout(function(){ try{ w2.focus(); w2.print(); }catch(_){} }, 200);
+          }catch(_){}
+        }
+      };
+
       var w = iframe.contentWindow;
       var d = iframe.contentDocument || w.document;
       d.open(); d.write(htmlDoc); d.close();
+
+      // se onload não disparar por algum motivo
       setTimeout(function(){
-        try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
-      }, 250);
+        try{
+          var w3 = iframe.contentWindow;
+          if(w3 && w3.document && w3.document.readyState === 'complete'){
+            // trigger manual
+            iframe.onload && iframe.onload();
+          }
+        }catch(e){}
+      }, 300);
+
     }catch(e){
       console.error(e);
       alert('Erro ao imprimir o cupom.');

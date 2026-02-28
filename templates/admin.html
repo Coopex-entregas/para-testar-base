@@ -1148,18 +1148,8 @@
                       </form>
 
                       <button type="button" class="act-ico" title="Imprimir cupom"
-                        data-id="{{ e.id }}"
-                        data-cliente="{{ e.cliente|e }}"
-                        data-bairro="{{ e.bairro|e }}"
-                        data-endereco="{{ (e.endereco if e.endereco is defined and e.endereco else '-')|e }}"
-                        data-valor="{{ '%.2f'|format(e.valor) }}"
-                        data-data="{{ to_brasilia(e.data_envio).strftime('%d/%m/%Y') if e.data_envio else '-' }}"
-                        data-hora_pedido="{{ to_brasilia(e.data_envio).strftime('%H:%M') if e.data_envio else '-' }}"
-                        data-hora_atribuida="{{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}"
                         data-cooperado="{{ e.cooperado.nome if e.cooperado else 'Sem Cooperado' }}"
-                        data-pagamento="{{ e.pagamento|e }}"
-                        
-                        data-recebido="{{ (e.recebido_por if e.recebido_por is defined else '')|e }}" onclick="imprimirCupom({{ e.id }}, this)">
+                        onclick="imprimirCupom({{ e.id }}, this)">
                         <svg viewBox="0 0 24 24" fill="#16a34a">
                           <path d="M19 8h-1V3c0-1.104-.896-2-2-2H8C6.896 1 6 1.896 6 3v5H5C2.794 8 1 9.794 1 12v6c0 2.206 1.794 4 4 4h2v-3h10v3h2c2.206 0 4-1.794 4-4v-6c0-2.206-1.794-4-4-4zM8 3h8v5H8V3zm8 14H8v-4h8v4z"/>
                         </svg>
@@ -1782,225 +1772,215 @@
 
   <!-- CUPOM / MAPA TELA CHEIA -->
   <script>
-    
-    // ===== CUPOM: impressão sem pop-up (iframe) + opção de editar =====
-    var __cupomTmpDados = null;
-
-    function __esc(s){
-      return String(s ?? '').replace(/[&<>"']/g, function(m){
-        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
-      });
-    }
-
-    function __openCupomOverlay(){
-      var ov = document.getElementById('cupomOverlay');
-      if(!ov) return;
-      ov.style.display = 'flex';
-      document.body.classList.add('locked');
-    }
-    function __closeCupomOverlay(){
-      var ov = document.getElementById('cupomOverlay');
-      if(!ov) return;
-      ov.style.display = 'none';
-      document.body.classList.remove('locked');
-      var form = document.getElementById('cupomEditForm');
-      if(form) form.style.display = 'none';
-    }
-
-    function __showCupomEditForm(d){
-      var form = document.getElementById('cupomEditForm');
-      if(!form) return;
-      form.style.display = 'block';
-
-      var inpCliente = document.getElementById('cupomCliente');
-      var inpColeta = document.getElementById('cupomColeta');
-      var inpEntrega = document.getElementById('cupomEntrega');
-      var inpAt = document.getElementById('cupomAtendente');
-
-      var inpRec = document.getElementById('cupomRecebido');
-      if(inpCliente) inpCliente.value = d?.cliente || '';
-      if(inpColeta)  inpColeta.value  = d?.endereco || '';
-      if(inpEntrega) inpEntrega.value = '';
-      if(inpAt)      inpAt.value      = '';
-      if(inpRec)     inpRec.value     = d?.recebido || '';
-    }
-
-    function __buildCupomHtml(d, mode, edits){
-      edits = edits || {};
-      var logoUrl = "/static/logo_coopex.png";
-      var reviewUrl = "https://g.page/r/CY6ffwOT76pNEBM/review";
-
-      // QR como IMAGEM (sem <script>) + fallback
-      var qrPrimary = "https://quickchart.io/qr?size=220&text=" + encodeURIComponent(reviewUrl);
-      var qrFallback = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(reviewUrl);
-
-      var cliente = (mode === 'editado') ? (edits.cliente || d.cliente) : d.cliente;
-      var atendente = (mode === 'editado') ? (edits.atendente || '') : '';
-      var recebido = (mode === 'editado') ? (edits.recebido || d.recebido || '') : (d.recebido || '');
-      var coleta = (mode === 'editado') ? (edits.coleta || '') : '';
-      var entrega = (mode === 'editado') ? (edits.entrega || '') : '';
-
-      function row(label, value){
-        return '<div class="row"><div class="k">'+ __esc(label) +'</div><div class="v">'+ __esc(value || '-') +'</div></div>';
+    function imprimirCupom(idEntrega, botao) {
+      var tr = botao.closest ? botao.closest('tr') : null;
+      function get(idx){
+        if(!tr || !tr.children || !tr.children[idx]) return '-';
+        var txt = (tr.children[idx].innerText || '').trim();
+        return txt || '-';
       }
 
-      var blocoEndereco = '';
-      if(mode === 'editado'){
-        blocoEndereco += row('COLETA:', coleta || '-');
-        blocoEndereco += row('ENTREGA:', entrega || '-');
-      }else{
-        blocoEndereco += row('ENDEREÇO:', d.endereco || '-');
-        blocoEndereco += row('BAIRRO:', d.bairro || '-');
+      var dataDiaBruto = (get(5) || '-').replace(/\s+/g,' ').trim();
+      var matchData = dataDiaBruto.match(/\d{2}\/\d{2}\/\d{4}/);
+      var dataSo = matchData ? matchData[0] : '-';
+
+      var rawId = get(0);
+      var numMatch = rawId.match(/\d+/);
+      var numId = numMatch ? numMatch[0] : rawId;
+
+      var cooperadoCupom = '-';
+      if (botao && botao.dataset && botao.dataset.cooperado){
+        cooperadoCupom = botao.dataset.cooperado;
+      } else {
+        cooperadoCupom = get(8) || '-';
       }
 
-      var atendenteLinha = atendente ? row('ATENDENTE:', atendente) : '';
-      var recebidoLinha = recebido ? row('RECEBIDO POR:', recebido) : '';
+      var dados = {
+        id: numId,
+        idPad: String(numId).padStart(6,'0'),
+        cliente: get(1),
+        bairro: get(2),
+        endereco: get(3),
+        valor: get(4).replace(/^R\$\s*/,'').trim(),
+        data: dataSo,
+        horaPedido: get(6),
+        cooperado: cooperadoCupom,
+        formaPgto: get(9),
+        recebidoPor: get(12)
+      };
 
-      // Layout 2 colunas (rótulo esquerda / valor direita), com total bem alinhado
-      var html =
-        '<!doctype html><html><head><meta charset="utf-8">' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-        '<title>Cupom</title>' +
-        '<style>' +
-        'html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif; color:#000;}' +
-        '.ticket{width:80mm; padding:6mm 5mm;}' +
-        '.center{text-align:center;}' +
-        '.logo{max-width:62mm; margin:0 auto 6px; display:block;}' +
-        '.title{font-weight:800;font-size:16px;margin:2px 0;}' +
-        '.sub{font-size:11px; opacity:.88;}' +
-        '.hr{border-top:1px dashed #000; margin:8px 0;}' +
-        '.row{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; margin:3px 0;}' +
-        '.k{font-weight:700; flex:0 0 auto;}' +
-        '.v{font-weight:700; text-align:right; flex:1 1 auto; word-break:break-word;}' +
-        '.totalRow{display:flex; justify-content:space-between; align-items:flex-end; margin-top:6px; font-size:15px; font-weight:800;}' +
-        '.totalRow .v{font-size:16px;}' +
-        '.small{font-size:11px; opacity:.9;}' +
-        '.qrWrap{margin-top:10px; display:flex; flex-direction:column; align-items:center; gap:6px;}' +
-        '.qrImg{width:38mm;height:38mm; object-fit:contain;}' +
-        '</style></head><body>' +
-        '<div class="ticket">' +
-          '<div class="center">' +
-            '<img class="logo" src="'+ logoUrl +'" alt="COOPEX">' +
-            '<div class="title">CUPOM NÃO FISCAL</div>' +
-            '<div class="sub">Comprovante de Entrega</div>' +
-          '</div>' +
-          '<div class="hr"></div>' +
-          row('PEDIDO:', '#'+ (d.idPad || d.id || '-') ) +
-          row('DATA:', d.data || '-') +
-          row('HORA:', d.horaPedido || '-') +
-          row('CLIENTE:', cliente || '-') +
-          blocoEndereco +
-          row('MOTOBOY:', d.cooperado || '-') +
-          row('FORMA PGTO:', d.formaPgto || '-') +
-          atendenteLinha +
-          recebidoLinha +
-          '<div class="hr"></div>' +
-          '<div class="totalRow"><div class="k">TOTAL:</div><div class="v">R$ '+ __esc(d.valorFmt || d.valor || '-') +'</div></div>' +
-          '<div class="hr"></div>' +
-          '<div class="qrWrap">' +
-            '<div class="small"><strong>Avalie no Google</strong></div>' +
-            '<img class="qrImg" src="'+ qrPrimary +'" alt="QR Avaliação" onerror="this.onerror=null;this.src=\''+ qrFallback +'\';">' +
-            '<div class="small" style="text-align:center;">Obrigado por escolher a <strong>COOPEX</strong>!<br>Sua avaliação ajuda nosso serviço a melhorar.</div>' +
-          '</div>' +
-        '</div>' +
-        '</body></html>';
+      var agora = new Date();
+      var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
+      var baseHref = "{{ request.host_url }}";
+      var cacheBust = Date.now();
 
-      return html;
-    }
+      var html = ''
++'<!DOCTYPE html>'
++'<html lang="pt-br">'
++'<head>'
++'  <meta charset="utf-8">'
++'  <title>Cupom #'+dados.id+'</title>'
++'  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
++'  <base href="'+baseHref+'">'
++'  <style>'
++'    @page { size: 80mm 110mm; margin: 3mm; }'
++'    *{box-sizing:border-box}'
++'    body{font-family: Arial, "Segoe UI", Roboto, system-ui, sans-serif;margin:0;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
++'    .cupom{width:100%; max-width:72mm; margin:0 auto; padding:0}'
++'    .center{text-align:center}'
++'    .line{display:flex; justify-content:space-between; gap:8px; font-size:12.5px; margin:2px 0}'
++'    .big{font-weight:900; font-size:18px}'
++'    hr{border:none; border-top:1px dotted #000; margin:8px 0}'
++'    .logo{width:62mm; max-width:100%; height:auto; object-fit:contain; margin:2px auto 6px; display:block}'
++'    .footer{font-size:11px; text-align:center; margin-top:6px}'
++'    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}'
++'    .tiny{font-size:10.5px}'
++'    .sign{ text-align:center; margin-top:8px; }'
++'    .sign-line{ width:48mm; height:0; border-top:1px solid #000; margin:10px auto 2px; }'
++'    .actions{display:flex; gap:10px; justify-content:center; padding:12px 0 16px}'
++'    .btn{padding:10px 18px; border-radius:10px; font-weight:800; cursor:pointer}'
++'    .btn-print{border:1px solid #000; background:#000; color:#fff}'
++'    .btn-close{border:1px solid #c3c8d5; background:#fff; color:#000}'
++'    .wrap{min-height:100vh; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:10px 8px 18px;}'
++'    @media print { .actions{display:none} body{background:#fff} }'
++'  </style>'
++'</head>'
++'<body>'
++'  <div class="wrap">'
++'    <div class="cupom">'
++'      <img src="'+logoUrl+'?v='+cacheBust+'" alt="Logo Coopex" class="logo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/200x60?text=COOPEX\';">'
++'      <div class="center tiny">'
++'        CNPJ: 05.289.938/0001-97<br>'
++'        Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN — CEP: 59075-140<br>'
++'        Fone/WhatsApp: (84) 98111-0706'
++'      </div>'
++'      <hr>'
++'      <div class="center" style="font-weight:800">CUPOM NÃO FISCAL Nº: <span class="mono">'+dados.idPad+'</span></div>'
++'      <div class="line"><span>Data:</span><span class="mono">'+dados.data+'</span></div>'
++'      <div class="line"><span>Hora:</span><span class="mono">'+dados.horaPedido+'</span></div>'
++'      <div class="line"><span>Cliente:</span><span class="mono">'+dados.cliente+'</span></div>'
++'      <div class="line"><span>Endereço:</span><span class="mono">'+dados.endereco+'</span></div>'
++'      <div class="line"><span>Bairro:</span><span class="mono">'+dados.bairro+'</span></div>'
++'      <div class="line"><span>Cooperado:</span><span class="mono">'+dados.cooperado+'</span></div>'
++'      <div class="line"><span>Forma Pgto:</span><span class="mono">'+dados.formaPgto+'</span></div>'
++'      <hr>'
++'      <div class="line"><span>Valor do serviço:</span><span class="mono">'+dados.valor+'</span></div>'
++'      <div class="line big"><span>TOTAL:</span><span class="mono">'+dados.valor+'</span></div>'
++'      <hr>'
++'      <div class="sign"><div class="sign-line"></div><div class="tiny">Supervisor</div></div>'
++'      <hr>'
++'      <div class="footer">'
++'        Emitido em <span class="mono">'+agora.toLocaleDateString("pt-BR")+'</span> às '
++'        <span class="mono">'+agora.toLocaleTimeString("pt-BR")+'</span><br>'
++'        Recebido por: <span class="mono">'+dados.recebidoPor+'</span>'
++'      </div>'
++'      <hr>'
++'      <div class="center" style="margin-top:6px">'
++'        <div class="tiny" style="font-weight:700">Obrigado por escolher a COOPEX!</div>'
++'        <div class="tiny">Avalie nosso serviço lendo o QR abaixo.</div>'
++'        <img alt="QR Avaliação" '
++'             src="https://quickchart.io/qr?size=180&text=https%3A%2F%2Fg.page%2Fr%2FCY6ffwOT76pNEBM%2Freview" '
++'             style="width:28mm;height:28mm;display:block;margin:6px auto 0" '
++'             onerror="this.onerror=null;this.src=\'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https%3A%2F%2Fg.page%2Fr%2FCY6ffwOT76pNEBM%2Freview\';" />'
++'      </div>'
 
-    // Botão na tabela chama isso
-    function imprimirCupom(idEntrega, botao){
-      try{
-        if(!botao || !botao.dataset) return;
-
-        var valorRaw = botao.dataset.valor || '-';
-        var valorFmt = '-';
++'    </div>'
++'    <div class="actions">'
++'      <button class="btn btn-print" onclick="window.print()">Imprimir</button>'
++'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
++'    </div>'
++'  </div>'
++'
+  <!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
         try{
-          var num = parseFloat(String(valorRaw).replace(',','.'));
-          if(!isNaN(num)) valorFmt = num.toFixed(2).replace('.',',');
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
         }catch(e){}
-
-        __cupomTmpDados = {
-          id: botao.dataset.id || idEntrega || '-',
-          idPad: botao.dataset.id || idEntrega || '-',
-          cliente: botao.dataset.cliente || '-',
-          bairro: botao.dataset.bairro || '-',
-          endereco: botao.dataset.endereco || '-',
-          valor: valorRaw,
-          valorFmt: valorFmt,
-          data: botao.dataset.data || '-',
-          horaPedido: botao.dataset.hora_pedido || botao.dataset.horaPedido || '-',
-          horaAtribuida: botao.dataset.hora_atribuida || botao.dataset.horaAtribuida || '-',
-          cooperado: botao.dataset.cooperado || '-',
-          formaPgto: botao.dataset.pagamento || botao.dataset.formaPgto || '-',
-          recebido: botao.dataset.recebido || ''
-        
-        };
-
-        __openCupomOverlay();
-      }catch(e){
-        console.error(e);
-        alert('Não foi possível preparar o cupom.');
       }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
+
+<script id="tm20x_iframe_printer">
+  // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
+  window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
+    try{
+      var iframe = document.getElementById('tm20x_print_iframe');
+      if(!iframe){
+        iframe = document.createElement('iframe');
+        iframe.id = 'tm20x_print_iframe';
+        iframe.style.position='fixed';
+        iframe.style.right='0';
+        iframe.style.bottom='0';
+        iframe.style.width='0';
+        iframe.style.height='0';
+        iframe.style.border='0';
+        iframe.style.opacity='0';
+        iframe.style.pointerEvents='none';
+        document.body.appendChild(iframe);
+      }
+      var w = iframe.contentWindow;
+      var d = iframe.contentDocument || w.document;
+      d.open(); d.write(htmlDoc); d.close();
+      // Aguarda carregar imagens (logo/QR) antes de imprimir
+      (function waitAndPrint(tries){
+        tries = tries || 0;
+        try{
+          var imgs = Array.prototype.slice.call(d.images || []);
+          var allOk = imgs.every(function(im){ return im.complete && im.naturalWidth > 0; });
+          if(allOk || tries >= 20){
+            w.focus(); w.print();
+            return;
+          }
+        }catch(e){}
+        setTimeout(function(){ waitAndPrint(tries+1); }, 150);
+      })();
+    }catch(e){
+      console.error(e);
+      alert('Erro ao imprimir o cupom.');
+    }
+  };
+</script>
+
+</body>'
++'</html>';
+
+      // Preferência: imprimir via IFRAME (não precisa pop-up)
+      if (window.__printHtmlTM20X) {
+        window.__printHtmlTM20X(html);
+        return;
+      }
+
+      // Fallback: pop-up (se o navegador permitir)
+      try{
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var w = window.open(url, '_blank');
+        if(w && !w.closed){
+          setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 15000);
+          return;
+        }
+        try{ URL.revokeObjectURL(url); }catch(e){}
+      }catch(e){}
+
+      alert('Não foi possível abrir a impressão. Verifique pop-ups do navegador e a impressora TM-T20X.');
     }
 
-    // Handlers do overlay (1x)
-    window.addEventListener('DOMContentLoaded', function(){
-      var btnNormal = document.getElementById('cupomPrintNormal');
-      var btnEdit = document.getElementById('cupomEditFirst');
-      var btnPrintEdited = document.getElementById('cupomPrintEdited');
-      var btnCancelEdit = document.getElementById('cupomCancelEdit');
-      var btnClose = document.getElementById('cupomClose');
-      var ov = document.getElementById('cupomOverlay');
-
-      if(btnClose) btnClose.addEventListener('click', __closeCupomOverlay);
-      if(ov) ov.addEventListener('click', function(e){ if(e.target === ov) __closeCupomOverlay(); });
-
-      if(btnNormal) btnNormal.addEventListener('click', function(){
-        try{
-          if(!__cupomTmpDados) return;
-          var html = __buildCupomHtml(__cupomTmpDados, 'normal', {});
-          if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
-          __closeCupomOverlay();
-        }catch(e){
-          console.error(e);
-          __closeCupomOverlay();
-          alert('Não foi possível imprimir.');
-        }
-      });
-
-      if(btnEdit) btnEdit.addEventListener('click', function(){
-        if(!__cupomTmpDados) return;
-        __showCupomEditForm(__cupomTmpDados);
-      });
-
-      if(btnCancelEdit) btnCancelEdit.addEventListener('click', function(){
-        var form = document.getElementById('cupomEditForm');
-        if(form) form.style.display = 'none';
-      });
-
-      if(btnPrintEdited) btnPrintEdited.addEventListener('click', function(){
-        try{
-          if(!__cupomTmpDados) return;
-          var edits = {
-            cliente: (document.getElementById('cupomCliente')||{}).value || '',
-            coleta: (document.getElementById('cupomColeta')||{}).value || '',
-            entrega: (document.getElementById('cupomEntrega')||{}).value || '',
-            atendente: (document.getElementById('cupomAtendente')||{}).value || '',
-            recebido: (document.getElementById('cupomRecebido')||{}).value || ''
-          };
-          var html = __buildCupomHtml(__cupomTmpDados, 'editado', edits);
-          if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
-          __closeCupomOverlay();
-        }catch(e){
-          console.error(e);
-          __closeCupomOverlay();
-          alert('Não foi possível imprimir.');
-        }
-      });
-    });
-
-function abrirMapaTelaCheia() {
+    function abrirMapaTelaCheia() {
       try {
         var url = "{{ url_for('mapa_motoboys') }}";
         var a = document.createElement('a');
@@ -2039,12 +2019,17 @@ function abrirMapaTelaCheia() {
 
       var map = L.map('map-coopex', { zoomControl: true, preferCanvas: true }).setView([-5.7945, -35.211], 13);
 
-      // Tile COLORIDO e mais estável no Render
-      var tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd'
-      }).addTo(map);
+      // Tile (MapTiler) — recomendado para rastreio público (clientes)
+      const MAPTILER_KEY = "{{ MAPTILER_KEY|default('') }}";
+      var tileUrl = MAPTILER_KEY
+        ? `https://api.maptiler.com/maps/outdoor-v4/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+      var tileOpts = MAPTILER_KEY
+        ? { tileSize: 512, zoomOffset: -1, maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; MapTiler' }
+        : { maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd' };
+
+      var tile = L.tileLayer(tileUrl, tileOpts).addTo(map);
 
       // força recalcular tamanho (muito comum o mapa nascer "travado")
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
@@ -2348,100 +2333,6 @@ function abrirMapaTelaCheia() {
   </script>
 
 
-
-  <!-- CUPOM: Overlay de escolha/edição (não salva no banco, só imprime) -->
-  <div id="cupomOverlay" style="display:none;">
-    <div class="cupom-modal" role="dialog" aria-modal="true" aria-label="Imprimir cupom">
-      <div class="cupom-head">
-        <strong>Imprimir Cupom</strong>
-        <button type="button" class="cupom-x" id="cupomClose" aria-label="Fechar">×</button>
-      </div>
-
-      <div class="cupom-body">
-        <div class="cupom-actions">
-          <button type="button" class="btn" id="cupomPrintNormal">Imprimir normal</button>
-          <button type="button" class="btn alt" id="cupomEditFirst">Editar antes</button>
-        </div>
-
-        <form id="cupomEditForm" style="display:none; margin-top:12px;">
-          <div class="cupom-grid">
-            <div class="field">
-              <label>Cliente</label>
-              <input type="text" id="cupomCliente" placeholder="Nome do cliente" />
-            </div>
-            <div class="field">
-              <label>Atendente</label>
-              <input type="text" id="cupomAtendente" placeholder="Seu nome (atendente)" />
-            </div>
-            <div class="field">
-              <label>Quem recebeu</label>
-              <input type="text" id="cupomRecebido" placeholder="Nome de quem recebeu" />
-            </div>
-            <div class="field" style="grid-column:1/-1;">
-              <label>Coleta (endereço)</label>
-              <input type="text" id="cupomColeta" placeholder="Endereço de coleta" />
-            </div>
-            <div class="field" style="grid-column:1/-1;">
-              <label>Entrega (endereço)</label>
-              <input type="text" id="cupomEntrega" placeholder="Endereço de entrega" />
-            </div>
-          </div>
-
-          <div class="cupom-actions" style="margin-top:12px;">
-            <button type="button" class="btn" id="cupomPrintEdited">Imprimir (editado)</button>
-            <button type="button" class="btn alt" id="cupomCancelEdit">Cancelar edição</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <style>
-    #cupomOverlay{
-      position:fixed; inset:0;
-      background:rgba(8,12,24,.78);
-      backdrop-filter: blur(3px);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      z-index:99999;
-      padding:14px;
-    }
-    .cupom-modal{
-      width:min(560px, 96vw);
-      background:var(--card);
-      color:var(--ink);
-      border:1px solid var(--line);
-      border-radius:16px;
-      box-shadow:0 18px 50px rgba(0,0,0,.35);
-      overflow:hidden;
-    }
-    .cupom-head{
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 14px;
-      background:linear-gradient(90deg, rgba(9, 33, 120, .98), rgba(15,53,181,.95));
-      color:#fff;
-      border-bottom:1px solid rgba(255,255,255,.18);
-    }
-    .cupom-x{
-      width:38px;height:38px;border-radius:12px;
-      border:1px solid rgba(255,255,255,.22);
-      background:rgba(255,255,255,.12);
-      color:#fff;font-size:22px;font-weight:900;
-      cursor:pointer;
-    }
-    .cupom-body{ padding:14px; }
-    .cupom-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-    .cupom-actions .btn{ flex:1 1 180px; justify-content:center; box-shadow:none; border:1px solid rgba(15,53,181,.20); }
-    .cupom-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    @media (max-width:520px){ .cupom-grid{ grid-template-columns:1fr; } }
-  </style>
-
 <script id="tm20x_iframe_printer">
   // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
   window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
@@ -2460,69 +2351,22 @@ function abrirMapaTelaCheia() {
         iframe.style.pointerEvents='none';
         document.body.appendChild(iframe);
       }
-
-      // Evita travar rolagem caso algum modal tenha deixado body.locked
-      document.body.classList.remove('locked');
-
-      iframe.onload = null; // reset
-      iframe.onload = function(){
-        try{
-          var w = iframe.contentWindow;
-          var d = iframe.contentDocument || w.document;
-
-          // Esperar imagens (logo/QR) carregarem antes de imprimir
-          var imgs = Array.from(d.images || []);
-          if(!imgs.length){
-            setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); } }, 120);
-            return;
-          }
-
-          var done = 0;
-          function finish(){
-            // pequeno delay para layout estabilizar
-            setTimeout(function(){
-              try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
-            }, 180);
-          }
-          function mark(){
-            done++;
-            if(done >= imgs.length) finish();
-          }
-          imgs.forEach(function(img){
-            if(img.complete) return mark();
-            img.addEventListener('load', mark, {once:true});
-            img.addEventListener('error', mark, {once:true});
-          });
-
-          // fallback: imprime mesmo assim depois de 1.2s
-          setTimeout(function(){
-            if(done < imgs.length) finish();
-          }, 1200);
-
-        }catch(e){
-          console.error(e);
-          try{
-            var w2 = iframe.contentWindow;
-            setTimeout(function(){ try{ w2.focus(); w2.print(); }catch(_){} }, 200);
-          }catch(_){}
-        }
-      };
-
       var w = iframe.contentWindow;
       var d = iframe.contentDocument || w.document;
       d.open(); d.write(htmlDoc); d.close();
-
-      // se onload não disparar por algum motivo
-      setTimeout(function(){
+      // Aguarda carregar imagens (logo/QR) antes de imprimir
+      (function waitAndPrint(tries){
+        tries = tries || 0;
         try{
-          var w3 = iframe.contentWindow;
-          if(w3 && w3.document && w3.document.readyState === 'complete'){
-            // trigger manual
-            iframe.onload && iframe.onload();
+          var imgs = Array.prototype.slice.call(d.images || []);
+          var allOk = imgs.every(function(im){ return im.complete && im.naturalWidth > 0; });
+          if(allOk || tries >= 20){
+            w.focus(); w.print();
+            return;
           }
         }catch(e){}
-      }, 300);
-
+        setTimeout(function(){ waitAndPrint(tries+1); }, 150);
+      })();
     }catch(e){
       console.error(e);
       alert('Erro ao imprimir o cupom.');

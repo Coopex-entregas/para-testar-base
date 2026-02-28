@@ -1762,7 +1762,7 @@
       ulFila.innerHTML = htmlLista;
     }
 
-    if (typeof socket !== 'undefined') {
+    if (false && typeof socket !== 'undefined') {
       socket.on('entrega_criada', atualizarOuInserirLinhaEntrega);
       socket.on('entrega_atualizada', atualizarOuInserirLinhaEntrega);
       socket.on('entrega_excluida', (dados)=> dados?.id && removerLinhaEntrega(dados.id));
@@ -1880,32 +1880,58 @@
 +'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
 +'    </div>'
 +'  </div>'
-+'
-  <!-- SOCORRO (áudio) -->
-  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
-  <script>
-    (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
++'</body>'
++'</html>';
+
+      try{
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var w = window.open(url, '_blank');
+        if(w && !w.closed){
+          setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 15000);
+          return;
+        }
+        try{ URL.revokeObjectURL(url); }catch(e){}
+      }catch(e){}
+
+      var win = null;
+      try { win = window.open('about:blank', '_blank', 'width=480,height=800'); } catch(e){}
+      if (win && !win.closed) {
+        try { win.opener = null; } catch(e){}
         try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+          return;
         }catch(e){}
       }
-      check();
-      // /* interval check desativado: atualizar somente no F5 (otimização) */
-    })();
+
+      showToast('<strong>Pop-up bloqueado.</strong> Libere pop-ups para imprimir.');
+    }
+
+    function abrirMapaTelaCheia() {
+      try {
+        var url = "{{ url_for('mapa_motoboys') }}";
+        var a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {
+        console.error(e);
+        showToast('<strong>Não foi possível abrir o mapa agora.</strong>');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', function(){
+      var btnFull = document.getElementById('btnFullMap');
+      if (btnFull) btnFull.addEventListener('click', abrirMapaTelaCheia);
+    });
   </script>
 
-
-<script id="tm20x_iframe_printer">
+  <script id="tm20x_iframe_printer">
   // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
   window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
     try{
@@ -2031,18 +2057,17 @@
       var currentFilter = 'all';
 
       var selectedId = '';
+      var followMode = false;
+      var followZoom = 16;
       var userInteracted = false;
       var programmaticMove = false;
-      var followMode = false;
-      var didInitialFit = false;
-      var lastFollowAt = 0;
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
-      map.on('mousedown dragstart zoomstart', function(){
-        if (followMode){
-          followMode = false; // para de seguir quando o admin mexe no mapa
+      map.on('zoomstart dragstart movestart', function(){
+        if (!programmaticMove){
+          userInteracted = true;
+          followMode = false;
         }
-        if (!programmaticMove) userInteracted = true;
       });
 
 
@@ -2098,21 +2123,6 @@
             });
             try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
           }
-
-          // seguir cooperado selecionado (modo follow)
-          if (followMode && selectedId && String(p.id) === String(selectedId)){
-            var nowT = Date.now();
-            if (nowT - lastFollowAt > 700){
-              lastFollowAt = nowT;
-              try{
-                programmaticMove = true;
-                var z = map.getZoom();
-                var targetZ = (z < 17) ? 17 : z;
-                map.setView([lat, lng], targetZ, {animate:true});
-                setTimeout(function(){ programmaticMove = false; }, 350);
-              }catch(e){ programmaticMove = false; }
-            }
-          }
         });
 
         // remove marcadores que sumiram
@@ -2129,8 +2139,7 @@
             var pts = list
               .filter(function(p){ return (typeof p.lat==='number' && typeof p.lng==='number'); })
               .map(function(p){ return [p.lat, p.lng]; });
-            if (!didInitialFit && pts.length && !selectedId && !userInteracted){
-              didInitialFit = true;
+            if (pts.length && !selectedId && !userInteracted){
               map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
             }
           }
@@ -2146,6 +2155,7 @@
         }
         renderList(list);
         renderMarkers(list);
+        followSelectedIfNeeded();
       }
 
       if (filterSel){
@@ -2159,64 +2169,35 @@
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
-          if (!id){
-            followMode = false;
-            return;
-          }
+          if (!id){ followMode = false; return; }
           followMode = true;
           userInteracted = false;
           programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
-          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') { programmaticMove = false; return; }
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
 
           try{
-            map.setView([p.lat, p.lng], 17, {animate:true});
+            map.setView([p.lat, p.lng], followZoom, {animate:true});
+            setTimeout(function(){ programmaticMove = false; }, 350);
             if (markers[String(p.id)]){
               try{ markers[String(p.id)].openTooltip(); }catch(e){}
             }
           }catch(e){}
-          setTimeout(function(){ programmaticMove = false; }, 350);
         });
-      }
 
-
-      // Botão: mapa em tela cheia (tenta Fullscreen API; se falhar, usa CSS fullscreen)
-      var fullBtn = document.getElementById('btnFullMap');
-      function toggleFull(){
+      // Seguir o cooperado selecionado a cada atualização (estilo Uber)
+      function followSelectedIfNeeded(){
         try{
-          var card = mapEl.closest('.map-card') || mapEl.parentElement;
-          if (!card) card = mapEl;
-          var goFull = !document.fullscreenElement;
-          if (goFull){
-            if (card.requestFullscreen){
-              card.requestFullscreen().then(function(){
-                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 400);
-              }).catch(function(){
-                card.classList.add('fullscreen');
-                setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
-              });
-            }else{
-              card.classList.add('fullscreen');
-              setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
-            }
-          }else{
-            if (document.exitFullscreen){
-              document.exitFullscreen().catch(function(){});
-            }
-            card.classList.remove('fullscreen');
-            setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 200);
-          }
+          if (!followMode || !selectedId) return;
+          var mk = markers[String(selectedId)];
+          if(!mk) return;
+          programmaticMove = true;
+          map.setView(mk.getLatLng(), Math.max(map.getZoom(), followZoom), {animate:true});
+          setTimeout(function(){ programmaticMove = false; }, 300);
         }catch(e){}
       }
-      if (fullBtn){
-        fullBtn.addEventListener('click', function(ev){
-          ev.preventDefault();
-          toggleFull();
-        });
+
       }
-      document.addEventListener('fullscreenchange', function(){
-        try{ setTimeout(function(){ map.invalidateSize(true); }, 200); }catch(e){}
-      });
 
       async function atualizar(){
         try{
@@ -2233,7 +2214,7 @@
       }
 
       atualizar();
-      setInterval(atualizar, 8000);
+      setInterval(atualizar, 5000);
     });
   </script>
 
@@ -2256,7 +2237,8 @@
         }catch(e){}
       }
       check();
-      // /* interval check desativado: atualizar somente no F5 (otimização) */
+      // Atualização automática desativada (só F5)
+      // setInterval(check, 4000);
     })();
   </script>
 
@@ -2331,7 +2313,9 @@
       }
 
       check();
-      // /* interval check desativado: atualizar somente no F5 (otimização) */
+      // Atualização automática desativada (só F5)
+      // // Atualização automática desativada (só F5)
+      // setInterval(check, 4000);
     })();
   </script>
 

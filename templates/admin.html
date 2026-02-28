@@ -800,7 +800,7 @@
         <button id="btnMenu" class="menu-btn" type="button" aria-label="Abrir menu principal">
           <span></span><span></span><span></span>
         </button>
-        <span>CoopEx Entregas – Supervisão</span>
+        <span>Kratos System – Supervisão</span>
       </div>
 
       <div class="kpis">
@@ -2050,23 +2050,69 @@ function abrirMapaTelaCheia() {
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 300);
       setTimeout(function(){ try{ map.invalidateSize(true); }catch(e){} }, 1200);
 
-      // marcador fino e pequeno
-      function makeMarker(lat, lng, tooltipHtml, online){
-        var color = online ? '#16a34a' : '#ef4444';
-        var m = L.circleMarker([lat,lng], {
-          radius: 4,
-          weight: 2,
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.85
-        }).addTo(map);
-        if (tooltipHtml){
-          m.bindTooltip(tooltipHtml, {direction:'top', sticky:true});
-        }
-        return m;
-      }
+      // marcador: PIN + MOTO (SVG Base64) - online verde / offline vermelho
+function __svgToDataUrl(svg){
+  try{
+    var encoded = btoa(unescape(encodeURIComponent(svg)));
+    return "data:image/svg+xml;base64," + encoded;
+  }catch(e){
+    return "";
+  }
+}
+function __motoPinSvg(color){
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56">' +
+      '<path d="M22 0C10.7 0 1.5 9.2 1.5 20.5C1.5 35.6 20.3 54.5 21.1 55.3C21.6 55.8 22.4 55.8 22.9 55.3C23.7 54.5 42.5 35.6 42.5 20.5C42.5 9.2 33.3 0 22 0Z" fill="'+color+'"/>' +
+      '<circle cx="22" cy="20.5" r="12.5" fill="#ffffff" opacity="0.98"/>' +
+      // moto (silhueta simples)
+      '<path d="M13.6 24.2c.7-2.2 2.7-3.7 5.1-3.7h2.1l1.3-2.1h3.8l-1.2 2.1h1.6c2.7 0 4.9 2.2 4.9 4.9 0 .3 0 .6-.1.9h-2.1c.1-.3.1-.6.1-.9 0-1.5-1.2-2.8-2.8-2.8h-6.7c-1.4 0-2.6.9-3 2.2l-.2.6h-2.8z" fill="#0b1220"/>' +
+      '<circle cx="17" cy="28" r="2.4" fill="#0b1220"/>' +
+      '<circle cx="29" cy="28" r="2.4" fill="#0b1220"/>' +
+    '</svg>'
+  );
+}
+function __iconSizeForZoom(z){
+  if (z >= 17) return 54;
+  if (z >= 15) return 48;
+  if (z >= 13) return 42;
+  return 36;
+}
+function __buildMotoIcon(online){
+  var color = online ? '#22c55e' : '#ef4444';
+  var size = __iconSizeForZoom(map.getZoom());
+  var url = __svgToDataUrl(__motoPinSvg(color));
+  return L.icon({
+    iconUrl: url,
+    iconSize: [size, Math.round(size * 56 / 44)],
+    iconAnchor: [Math.round(size/2), Math.round(size * 56 / 44) - 2],
+    popupAnchor: [0, -Math.round(size * 56 / 44) + 8]
+  });
+}
 
-      var markers = {}; // id -> marker
+function makeMarker(lat, lng, tooltipHtml, online){
+  var m = L.marker([lat, lng], { icon: __buildMotoIcon(online) }).addTo(map);
+  m.options.__online = !!online;
+
+  if (tooltipHtml){
+    m.bindTooltip(tooltipHtml, {direction:'top', sticky:true, opacity:0.95});
+    // popup com as mesmas infos do tooltip (e espaço para velocidade se vier no HTML)
+    m.bindPopup('<div style="min-width:220px">' + tooltipHtml + '</div>', {closeButton:true});
+  }
+  return m;
+}
+
+// reajusta tamanho dos ícones quando der zoom
+map.on('zoomend', function(){
+  try{
+    Object.keys(markers || {}).forEach(function(k){
+      var mk = markers[k];
+      if (mk && mk.setIcon){
+        mk.setIcon(__buildMotoIcon(!!mk.options.__online));
+      }
+    });
+  }catch(e){}
+});
+var markers = {}; // id -> marker
       var lastData = [];
       var currentFilter = 'all';
 
@@ -2126,11 +2172,14 @@ function abrirMapaTelaCheia() {
             markers[String(p.id)] = makeMarker(lat, lng, html, online);
           } else {
             markers[String(p.id)].setLatLng([lat,lng]);
-            markers[String(p.id)].setStyle({
-              color: online ? '#16a34a' : '#ef4444',
-              fillColor: online ? '#16a34a' : '#ef4444'
-            });
+            try{
+              markers[String(p.id)].options.__online = !!online;
+              if (markers[String(p.id)].setIcon){
+                markers[String(p.id)].setIcon(__buildMotoIcon(!!online));
+              }
+            }catch(e){}
             try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
+            try{ markers[String(p.id)].setPopupContent('<div style="min-width:220px">'+html+'</div>'); }catch(e){}
           }
         });
 

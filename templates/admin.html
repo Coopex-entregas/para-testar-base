@@ -1159,7 +1159,7 @@
                         data-cooperado="{{ e.cooperado.nome if e.cooperado else 'Sem Cooperado' }}"
                         data-pagamento="{{ e.pagamento|e }}"
                         
-                        data-recebido="{{ (e.recebido_por if e.recebido_por is defined else \'\')|e }}"onclick="imprimirCupom({{ e.id }}, this)">
+                        data-recebido="{{ (e.recebido_por if e.recebido_por is defined else '')|e }}" onclick="imprimirCupom({{ e.id }}, this)">
                         <svg viewBox="0 0 24 24" fill="#16a34a">
                           <path d="M19 8h-1V3c0-1.104-.896-2-2-2H8C6.896 1 6 1.896 6 3v5H5C2.794 8 1 9.794 1 12v6c0 2.206 1.794 4 4 4h2v-3h10v3h2c2.206 0 4-1.794 4-4v-6c0-2.206-1.794-4-4-4zM8 3h8v5H8V3zm8 14H8v-4h8v4z"/>
                         </svg>

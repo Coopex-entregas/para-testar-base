@@ -5,6 +5,49 @@
   <title>Painel da Supervisão - Coopex</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- MODAL CUPOM (IMPRIMIR / EDITAR) -->
+  <div id="cupomOverlay" class="modal" style="display:none;">
+    <div class="box" style="max-width:520px;">
+      <header style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="font-weight:900;">Cupom</div>
+        <button id="cupomClose" class="xbtn" type="button" aria-label="Fechar">✕</button>
+      </header>
+
+      <div class="content">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="cupomPrintNormal" class="btn ok" type="button" style="flex:1; min-width:220px;">Imprimir normal</button>
+          <button id="cupomEditFirst" class="btn" type="button" style="flex:1; min-width:220px; background:#0b3aa0; color:#fff; border:none;">Editar antes de imprimir</button>
+        </div>
+
+        <form id="cupomEditForm" style="display:none; margin-top:14px;">
+          <div style="display:grid; grid-template-columns:1fr; gap:10px;">
+            <div>
+              <label style="font-weight:800; font-size:12px;">Cliente</label>
+              <input id="cupomCliente" type="text" class="input" placeholder="Nome do cliente">
+            </div>
+            <div>
+              <label style="font-weight:800; font-size:12px;">Coleta (endereço)</label>
+              <input id="cupomColeta" type="text" class="input" placeholder="Endereço de coleta">
+            </div>
+            <div>
+              <label style="font-weight:800; font-size:12px;">Entrega (endereço)</label>
+              <input id="cupomEntrega" type="text" class="input" placeholder="Endereço de entrega">
+            </div>
+            <div>
+              <label style="font-weight:800; font-size:12px;">Atendente</label>
+              <input id="cupomAtendente" type="text" class="input" placeholder="Nome do atendente">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+            <button id="cupomCancelEdit" type="button" class="btn" style="background:#fff; border:1px solid #cbd5e1;">Cancelar</button>
+            <button id="cupomPrintEdited" type="button" class="btn ok">Imprimir</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Leaflet -->
   <link
@@ -937,7 +980,7 @@
                 <option value="online">🟢 Só online</option>
               </select>
 
-              <a id="btnFullMap" class="map-full-btn" href="{{ url_for('mapa_motoboys') }}" target="_blank" rel="noopener">Mapa em tela cheia</a>
+              <button id="btnFullMap" class="map-full-btn" type="button">Mapa em tela cheia</button>
             </div>
           </div>
 
@@ -1149,17 +1192,16 @@
 
                       <button type="button" class="act-ico" title="Imprimir cupom"
                         data-id="{{ e.id }}"
-                        data-idpad="{{ "%06d"|format(e.id) }}"
-                        data-cliente="{{ e.cliente|default('-') }}"
-                        data-bairro="{{ e.bairro|default('-') }}"
-                        data-endereco="{{ (e.endereco if e.endereco is defined and e.endereco else '-')|replace('"','&quot;') }}"
-                        data-valor="{{ '%.2f'|format(e.valor)|replace('.',',') }}"
-                        data-data="{{ to_brasilia(e.data_envio).strftime('%d/%m/%Y') if e.data_envio else '-' }}"
-                        data-hora-pedido="{{ to_brasilia(e.data_envio).strftime('%H:%M') if e.data_envio else '-' }}"
-                        data-hora-atribuida="{{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}"
-                        data-cooperado="{{ e.cooperado.nome if e.cooperado else 'Sem Cooperado' }}"
-                        data-forma-pgto="{{ e.pagamento|default('-') }}"
-                        data-recebido-por="{{ e.recebido_por|default('-') }}"
+                        data-idpad="{{ '%06d'|format(e.id) }}"
+                        data-data="{{ to_brasilia(e.data).strftime('%d/%m/%Y') if e.data else '' }}"
+                        data-hora-pedido="{{ e.hora_pedido or '' }}"
+                        data-hora-atribuida="{{ e.hora_atribuida or '' }}"
+                        data-cliente="{{ (e.cliente or '')|e }}"
+                        data-endereco="{{ (e.endereco or '')|e }}"
+                        data-bairro="{{ (e.bairro or '')|e }}"
+                        data-valor="{{ ('%.2f'|format(e.valor)).replace('.', ',') if e.valor is not none else '' }}"
+                        data-forma-pgto="{{ (e.forma_pagamento or '')|e }}"
+                        data-cooperado="{{ (e.cooperado.nome if e.cooperado else 'Sem Cooperado')|e }}"
                         onclick="imprimirCupom(this)">
                         <svg viewBox="0 0 24 24" fill="#16a34a">
                           <path d="M19 8h-1V3c0-1.104-.896-2-2-2H8C6.896 1 6 1.896 6 3v5H5C2.794 8 1 9.794 1 12v6c0 2.206 1.794 4 4 4h2v-3h10v3h2c2.206 0 4-1.794 4-4v-6c0-2.206-1.794-4-4-4zM8 3h8v5H8V3zm8 14H8v-4h8v4z"/>
@@ -1209,18 +1251,11 @@
   <audio id="som-pendente" src="{{ url_for('static', filename='aviso_pendente.mp3') }}"></audio>
   <audio id="som-socorro" src="{{ url_for('static', filename='socorro.mp3') }}"></audio>
 
-  <!-- Socket.IO -->
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  <!-- Socket.IO (DESATIVADO: para evitar lentidão e erros de sessão; o mapa usa fetch) -->
   <script>
-    const socket = io("{{ request.host_url.rstrip('/') }}", {
-      transports: ["polling"],
-      path: "/socket.io/",
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000
-    });
-    socket.on("connect", () => console.log("Socket conectado (polling), id:", socket.id));
-    socket.on("connect_error", (err) => console.error("Erro na conexão Socket.IO:", err));
+    // Se um dia quiser reativar tempo real via Socket.IO:
+    // window.ENABLE_SOCKET = true;
+    window.ENABLE_SOCKET = false;
   </script>
 
   <script>
@@ -1773,7 +1808,7 @@
       ulFila.innerHTML = htmlLista;
     }
 
-    if (false && typeof socket !== 'undefined') {
+    if (typeof socket !== 'undefined') {
       socket.on('entrega_criada', atualizarOuInserirLinhaEntrega);
       socket.on('entrega_atualizada', atualizarOuInserirLinhaEntrega);
       socket.on('entrega_excluida', (dados)=> dados?.id && removerLinhaEntrega(dados.id));
@@ -1781,87 +1816,91 @@
     }
   </script>
 
-    <!-- CUPOM / IMPRESSÃO (SEM POP-UP) -->
+  <!-- CUPOM / MAPA TELA CHEIA -->
   <script>
-    // Impressão via IFRAME invisível (evita bloqueio de pop-up)
-    window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
+    // ====== CUPOM: modal (imprimir normal OU editar antes) + impressão via IFRAME (sem pop-up) ======
+    // Requer: window.__printHtmlTM20X (já existe mais abaixo no arquivo)
+
+    let __cupomTmp = null;
+    let __cupomEditMode = false;
+
+    function __esc(s){
       try{
-        var iframe = document.getElementById('tm20x_print_iframe');
-        if(!iframe){
-          iframe = document.createElement('iframe');
-          iframe.id = 'tm20x_print_iframe';
-          iframe.style.position = 'fixed';
-          iframe.style.right = '0';
-          iframe.style.bottom = '0';
-          iframe.style.width = '0';
-          iframe.style.height = '0';
-          iframe.style.border = '0';
-          iframe.style.opacity = '0';
-          iframe.style.pointerEvents = 'none';
-          document.body.appendChild(iframe);
-        }
-        var w = iframe.contentWindow;
-        var d = iframe.contentDocument || w.document;
-        d.open();
-        d.write(htmlDoc);
-        d.close();
-        setTimeout(function(){
-          try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
-        }, 250);
-      }catch(e){
-        console.error(e);
-        alert('Erro ao imprimir o cupom.');
-      }
-    };
+        return String(s ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'",'&#39;');
+      }catch(e){ return String(s ?? ''); }
+    }
 
-    // Gera cupom completo a partir dos data-* do botão (sem depender do innerText da tabela)
-    function imprimirCupom(btn){
-      try{
-        if(!btn || !btn.dataset){ return; }
-        var dados = {
-          id: btn.dataset.id || '-',
-          idPad: btn.dataset.idpad || String(btn.dataset.id || '-'),
-          cliente: btn.dataset.cliente || '-',
-          bairro: btn.dataset.bairro || '-',
-          endereco: btn.dataset.endereco || '-',
-          valor: btn.dataset.valor || '-',
-          data: btn.dataset.data || '-',
-          horaPedido: btn.dataset.horaPedido || '-',
-          horaAtribuida: btn.dataset.horaAtribuida || '-',
-          cooperado: btn.dataset.cooperado || '-',
-          formaPgto: btn.dataset.formaPgto || '-',
-          recebidoPor: btn.dataset.recebidoPor || '-'
-        };
+    function __buildCupomHtml(d, mode, edits){
+      const reviewUrl = "https://g.page/r/CY6ffwOT76pNEBM/review";
+      const logoUrl = "{{ url_for('static', filename='logo_coopex.png') }}";
+      const now = new Date();
+      const emitData = now.toLocaleDateString('pt-BR');
+      const emitHora = now.toLocaleTimeString('pt-BR');
 
-        var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
-        var agora = new Date();
-        var emitData = agora.toLocaleDateString('pt-BR');
-        var emitHora = agora.toLocaleTimeString('pt-BR');
+      const useEdit = (mode === 'edit');
+      const cliente = useEdit ? (edits.cliente || d.cliente) : d.cliente;
 
-        var html = `<!doctype html>
+      const coleta = useEdit ? (edits.coleta || '') : '';
+      const entrega = useEdit ? (edits.entrega || '') : '';
+
+      const atendente = useEdit ? (edits.atendente || '') : '';
+
+      const label1 = useEdit ? 'Coleta:' : 'Endereço:';
+      const label2 = useEdit ? 'Entrega:' : 'Bairro:';
+
+      const val1 = useEdit ? (coleta || '-') : (d.endereco || '-');
+      const val2 = useEdit ? (entrega || '-') : (d.bairro || '-');
+
+      // QR como imagem (não depende de <script> dentro do cupom)
+      const qrImg = "https://chart.googleapis.com/chart?cht=qr&chs=180x180&chl=" + encodeURIComponent(reviewUrl);
+
+      const safe = {
+        idpad: __esc(d.idpad || d.id || '-'),
+        data: __esc(d.data || '-'),
+        horaPedido: __esc(d.hora_pedido || '-'),
+        horaAtribuida: __esc(d.hora_atribuida || '-'),
+        cliente: __esc(cliente || '-'),
+        cooperado: __esc(d.cooperado || '-'),
+        forma: __esc(d.forma_pgto || '-'),
+        valor: __esc(d.valor || '-'),
+        label1: __esc(label1),
+        label2: __esc(label2),
+        val1: __esc(val1),
+        val2: __esc(val2),
+        atendente: __esc(atendente || '')
+      };
+
+      return `<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>Cupom #${dados.idPad}</title>
+  <title>Cupom #${safe.idpad}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    @page { size: 80mm 120mm; margin: 3mm; }
+    @page{ size: 80mm 130mm; margin: 3mm; }
     *{ box-sizing:border-box; }
     body{ font-family: Arial, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; color:#000; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     .cupom{ width:100%; max-width:72mm; margin:0 auto; }
-    .logo{ width:62mm; max-width:100%; height:auto; display:block; margin:2mm auto 1mm; object-fit:contain; }
+    .logo{ width:58mm; max-width:100%; height:auto; display:block; margin:2mm auto 1mm; object-fit:contain; }
     .center{ text-align:center; }
     .tiny{ font-size:10.5px; line-height:1.25; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     hr{ border:none; border-top:1px dotted #000; margin:6px 0; }
-    .line{ display:flex; justify-content:space-between; gap:8px; font-size:12.3px; margin:2px 0; }
+    .line{ display:flex; justify-content:space-between; gap:8px; font-size:12.2px; margin:2px 0; }
     .line span:last-child{ text-align:right; }
-    .title{ font-weight:900; font-size:13px; }
     .big{ font-weight:900; font-size:17px; }
+    .qr-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:6px; }
+    .qr-title{ font-weight:900; font-size:11px; text-align:center; }
+    .qr-foot{ font-size:10px; text-align:center; word-break:break-all; }
     .actions{ display:flex; gap:8px; justify-content:center; margin-top:10px; }
     .btn{ padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; border:1px solid #111; background:#111; color:#fff; }
     .btn.alt{ background:#fff; color:#111; border:1px solid #cbd5e1; }
-    @media print { .actions{ display:none; } }
+    @media print{ .actions{ display:none; } }
   </style>
 </head>
 <body>
@@ -1869,34 +1908,36 @@
     <img class="logo" src="${logoUrl}?v=${Date.now()}" alt="COOPEX" onerror="this.onerror=null;this.style.display='none';">
     <div class="center tiny">
       <div style="font-weight:900; font-size:12px;">COOPEX ENTREGAS</div>
-      <div>CNPJ: 05.289.938/0001-97</div>
-      <div>Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN</div>
-      <div>Fone/WhatsApp: (84) 98111-0706</div>
+      <div style="opacity:.92">COMPROVANTE / CUPOM NÃO FISCAL</div>
+      <div>Nº: <span class="mono">${safe.idpad}</span></div>
     </div>
-    <hr>
-    <div class="center title">COMPROVANTE / CUPOM NÃO FISCAL</div>
-    <div class="center tiny">Nº: <span class="mono">${dados.idPad}</span></div>
-    <hr>
-
-    <div class="line"><span>Data:</span><span class="mono">${dados.data}</span></div>
-    <div class="line"><span>Hora pedido:</span><span class="mono">${dados.horaPedido}</span></div>
-    <div class="line"><span>Hora atribuída:</span><span class="mono">${dados.horaAtribuida}</span></div>
 
     <hr>
-    <div class="line"><span>Cliente:</span><span class="mono">${dados.cliente}</span></div>
-    <div class="line"><span>Endereço:</span><span class="mono">${dados.endereco}</span></div>
-    <div class="line"><span>Bairro:</span><span class="mono">${dados.bairro}</span></div>
-    <div class="line"><span>Cooperado:</span><span class="mono">${dados.cooperado}</span></div>
-    <div class="line"><span>Forma pgto:</span><span class="mono">${dados.formaPgto}</span></div>
+    <div class="line"><span>Data:</span><span class="mono">${safe.data}</span></div>
+    <div class="line"><span>Hora pedido:</span><span class="mono">${safe.horaPedido}</span></div>
+    <div class="line"><span>Hora atribuída:</span><span class="mono">${safe.horaAtribuida}</span></div>
 
     <hr>
-    <div class="line"><span>Valor do serviço:</span><span class="mono">R$ ${dados.valor}</span></div>
-    <div class="line big"><span>TOTAL:</span><span class="mono">R$ ${dados.valor}</span></div>
+    <div class="line"><span>Cliente:</span><span class="mono">${safe.cliente}</span></div>
+    <div class="line"><span>${safe.label1}</span><span class="mono">${safe.val1}</span></div>
+    <div class="line"><span>${safe.label2}</span><span class="mono">${safe.val2}</span></div>
+    <div class="line"><span>Cooperado:</span><span class="mono">${safe.cooperado}</span></div>
+    <div class="line"><span>Forma pgto:</span><span class="mono">${safe.forma}</span></div>
+    ${safe.atendente ? `<div class="line"><span>Atendente:</span><span class="mono">${safe.atendente}</span></div>` : ``}
+
+    <hr>
+    <div class="line"><span>Valor do serviço:</span><span class="mono">R$ ${safe.valor}</span></div>
+    <div class="line big"><span>TOTAL:</span><span class="mono">R$ ${safe.valor}</span></div>
 
     <hr>
     <div class="center tiny">
-      Emitido em <span class="mono">${emitData}</span> às <span class="mono">${emitHora}</span><br>
-      Recebido por: <span class="mono">${dados.recebidoPor}</span>
+      Emitido em <span class="mono">${emitData}</span> às <span class="mono">${emitHora}</span>
+    </div>
+
+    <div class="qr-wrap">
+      <div class="qr-title">AVALIE A COOPEX NO GOOGLE</div>
+      <img src="${qrImg}" alt="QR Avaliação" style="width:36mm;height:36mm; image-rendering:pixelated;">
+      <div class="qr-foot mono">${reviewUrl}</div>
     </div>
 
     <div class="actions">
@@ -1906,37 +1947,131 @@
   </div>
 </body>
 </html>`;
+    }
 
-        window.__printHtmlTM20X(html);
+    function __openCupomModal(){
+      const ov = document.getElementById('cupomOverlay');
+      if(!ov) return;
+      ov.style.display = 'flex';
+      document.body.classList.add('locked');
+    }
+    function __closeCupomModal(){
+      const ov = document.getElementById('cupomOverlay');
+      if(!ov) return;
+      ov.style.display = 'none';
+      document.body.classList.remove('locked');
+      __cupomEditMode = false;
+      const form = document.getElementById('cupomEditForm');
+      if(form) form.style.display = 'none';
+    }
+
+    function imprimirCupom(btn){
+      try{
+        if(!btn || !btn.dataset) return;
+        __cupomTmp = {
+          id: btn.dataset.id || '',
+          idpad: btn.dataset.idpad || btn.dataset.id || '',
+          data: btn.dataset.data || '',
+          hora_pedido: btn.dataset.horaPedido || '',
+          hora_atribuida: btn.dataset.horaAtribuida || '',
+          cliente: btn.dataset.cliente || '',
+          endereco: btn.dataset.endereco || '',
+          bairro: btn.dataset.bairro || '',
+          valor: btn.dataset.valor || '',
+          forma_pgto: btn.dataset.formaPgto || '',
+          cooperado: btn.dataset.cooperado || ''
+        };
+
+        // preenche form (se for editar)
+        const inpCliente = document.getElementById('cupomCliente');
+        const inpColeta  = document.getElementById('cupomColeta');
+        const inpEntrega = document.getElementById('cupomEntrega');
+        const inpAt      = document.getElementById('cupomAtendente');
+
+        if(inpCliente) inpCliente.value = __cupomTmp.cliente || '';
+        if(inpColeta)  inpColeta.value  = __cupomTmp.endereco || '';
+        if(inpEntrega) inpEntrega.value = '';
+        if(inpAt)      inpAt.value      = '';
+
+        __openCupomModal();
       }catch(e){
         console.error(e);
-        alert('Não foi possível gerar o cupom.');
+        alert('Não foi possível preparar o cupom.');
       }
     }
+
+    function __printNormal(){
+      if(!__cupomTmp) return;
+      const html = __buildCupomHtml(__cupomTmp, 'normal', {});
+      if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
+      __closeCupomModal();
+    }
+
+    function __showEdit(){
+      const form = document.getElementById('cupomEditForm');
+      if(form) form.style.display = 'block';
+    }
+
+    function __printEdited(){
+      if(!__cupomTmp) return;
+      const edits = {
+        cliente: document.getElementById('cupomCliente')?.value || '',
+        coleta:  document.getElementById('cupomColeta')?.value || '',
+        entrega: document.getElementById('cupomEntrega')?.value || '',
+        atendente: document.getElementById('cupomAtendente')?.value || ''
+      };
+      const html = __buildCupomHtml(__cupomTmp, 'edit', edits);
+      if(window.__printHtmlTM20X) window.__printHtmlTM20X(html);
+      __closeCupomModal();
+    }
+
+    // ====== MAPA TELA CHEIA: abre a página mapa_motoboys.html ======
+    function abrirMapaTelaCheia(){
+      try{
+        const url = "{{ url_for('mapa_motoboys') }}";
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }catch(e){
+        console.error(e);
+        showToast('Não foi possível abrir o mapa agora.');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', function(){
+      const btnFull = document.getElementById('btnFullMap');
+      if(btnFull){
+        btnFull.addEventListener('click', function(ev){
+          ev.preventDefault();
+          abrirMapaTelaCheia();
+        });
+      }
+
+      // Modal handlers
+      const ov = document.getElementById('cupomOverlay');
+      const btnClose = document.getElementById('cupomClose');
+      const btnNormal = document.getElementById('cupomPrintNormal');
+      const btnEdit = document.getElementById('cupomEditFirst');
+      const btnPrintEdited = document.getElementById('cupomPrintEdited');
+      const btnCancelEdit = document.getElementById('cupomCancelEdit');
+
+      if(btnClose) btnClose.addEventListener('click', __closeCupomModal);
+      if(ov) ov.addEventListener('click', function(e){ if(e.target === ov) __closeCupomModal(); });
+
+      if(btnNormal) btnNormal.addEventListener('click', __printNormal);
+      if(btnEdit) btnEdit.addEventListener('click', __showEdit);
+      if(btnCancelEdit) btnCancelEdit.addEventListener('click', function(){
+        const form = document.getElementById('cupomEditForm');
+        if(form) form.style.display = 'none';
+      });
+      if(btnPrintEdited) btnPrintEdited.addEventListener('click', __printEdited);
+    });
   </script>
 
-<!-- SOCORRO (áudio) -->
-  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
-  <script>
-    (function socorroPolling(){
-      const audio = document.getElementById('socorroAudio');
-      async function check(){
-        try{
-          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
-          if(!r.ok) return;
-          const data = await r.json();
-          if(data && data.novo){
-            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
-            try{
-              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
-            }catch(e){}
-          }
-        }catch(e){}
-      }
-      check();
-      setInterval(check, 4000);
-    })();
-  </script>
 
 
 <script id="tm20x_iframe_printer">
@@ -2070,10 +2205,10 @@
       var programmaticMove = false;
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
-      map.on('mousedown dragstart zoomstart movestart', function(){
+      map.on('zoomstart movestart dragstart', function(){
         if (!programmaticMove){
           userInteracted = true;
-          followMode = false; // parou de seguir ao mexer manualmente
+          followMode = false;
         }
       });
 
@@ -2140,19 +2275,7 @@
           }
         });
 
-        
-        // Se estiver em modo seguir, acompanha a posição do cooperado selecionado (sem mudar o zoom)
-        try{
-          if (followMode && selectedId){
-            var sp = list.find(function(p){ return String(p.id) === String(selectedId); });
-            if (sp && typeof sp.lat === 'number' && typeof sp.lng === 'number'){
-              // panTo é mais suave e não força zoom; se quiser "grudar" mais, troque por setView mantendo zoom
-              map.panTo([sp.lat, sp.lng], { animate:true });
-            }
-          }
-        }catch(e){}
-
-// se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
+        // se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
         try{
           if (list.length && (!sel || !sel.value)){
             var pts = list
@@ -2160,6 +2283,18 @@
               .map(function(p){ return [p.lat, p.lng]; });
             if (pts.length && !selectedId && !userInteracted){
               map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
+            }
+          }
+        }catch(e){}
+
+        // seguir motoboy selecionado enquanto followMode estiver ativo
+        try{
+          if (followMode && selectedId){
+            var psel = list.find(function(x){ return String(x.id) === String(selectedId); }) || lastData.find(function(x){ return String(x.id) === String(selectedId); });
+            if(psel && typeof psel.lat==='number' && typeof psel.lng==='number'){
+              programmaticMove = true;
+              map.setView([psel.lat, psel.lng], Math.max(map.getZoom(), 16), {animate:true});
+              setTimeout(function(){ programmaticMove = false; }, 300);
             }
           }
         }catch(e){}
@@ -2187,38 +2322,30 @@
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
-          if (!id) { followMode = false; return; }
+          if (!id){ followMode = false; return; }
 
-          // Ao selecionar: centraliza, aplica zoom e entra em modo seguir.
+          // ao escolher motoboy: centraliza + começa a seguir
           followMode = true;
           userInteracted = false;
 
-          programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
-          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') { programmaticMove = false; return; }
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
 
+          programmaticMove = true;
           try{
-            map.setView([p.lat, p.lng], 16, { animate:true });
+            map.setView([p.lat, p.lng], 16, {animate:true});
             if (markers[String(p.id)]){
               try{ markers[String(p.id)].openTooltip(); }catch(e){}
             }
           }catch(e){}
-          setTimeout(function(){ programmaticMove = false; }, 250);
+          setTimeout(function(){ programmaticMove = false; }, 350);
         });
       }
 
 
-      // Botão: mapa em tela cheia
-      // Aqui o botão/atalho deve abrir a página dedicada (mapa_motoboys.html), sem forçar fullscreen dentro deste painel.
-      // O elemento #btnFullMap é um <a href="...">, então não precisamos interceptar clique.
-      var fullBtn = document.getElementById('btnFullMap');
-      if (fullBtn && fullBtn.tagName === 'BUTTON'){
-        fullBtn.addEventListener('click', function(){
-          window.open("{{ url_for('mapa_motoboys') }}", "_blank");
-        });
-      }
+      // Botão de tela cheia desativado aqui (o botão abre /mapa_motoboys em nova aba)
 
-async function atualizar(){
+      async function atualizar(){
         try{
           const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
             cache:'no-store',

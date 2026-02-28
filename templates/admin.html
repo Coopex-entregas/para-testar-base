@@ -1900,7 +1900,7 @@
         }catch(e){}
       }
       check();
-      setInterval(check, 4000);
+      // /* interval check desativado: atualizar somente no F5 (otimização) */
     })();
   </script>
 
@@ -2033,9 +2033,15 @@
       var selectedId = '';
       var userInteracted = false;
       var programmaticMove = false;
+      var followMode = false;
+      var didInitialFit = false;
+      var lastFollowAt = 0;
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
-      map.on('zoomstart movestart', function(){
+      map.on('mousedown dragstart zoomstart', function(){
+        if (followMode){
+          followMode = false; // para de seguir quando o admin mexe no mapa
+        }
         if (!programmaticMove) userInteracted = true;
       });
 
@@ -2092,6 +2098,21 @@
             });
             try{ markers[String(p.id)].setTooltipContent(html); }catch(e){}
           }
+
+          // seguir cooperado selecionado (modo follow)
+          if (followMode && selectedId && String(p.id) === String(selectedId)){
+            var nowT = Date.now();
+            if (nowT - lastFollowAt > 700){
+              lastFollowAt = nowT;
+              try{
+                programmaticMove = true;
+                var z = map.getZoom();
+                var targetZ = (z < 17) ? 17 : z;
+                map.setView([lat, lng], targetZ, {animate:true});
+                setTimeout(function(){ programmaticMove = false; }, 350);
+              }catch(e){ programmaticMove = false; }
+            }
+          }
         });
 
         // remove marcadores que sumiram
@@ -2108,7 +2129,8 @@
             var pts = list
               .filter(function(p){ return (typeof p.lat==='number' && typeof p.lng==='number'); })
               .map(function(p){ return [p.lat, p.lng]; });
-            if (pts.length && !selectedId && !userInteracted){
+            if (!didInitialFit && pts.length && !selectedId && !userInteracted){
+              didInitialFit = true;
               map.fitBounds(pts, {padding:[30,30], maxZoom: 14});
             }
           }
@@ -2137,17 +2159,23 @@
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
-          if (!id) return;
+          if (!id){
+            followMode = false;
+            return;
+          }
+          followMode = true;
+          userInteracted = false;
           programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
-          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') { programmaticMove = false; return; }
 
           try{
-            map.setView([p.lat, p.lng], 16);
+            map.setView([p.lat, p.lng], 17, {animate:true});
             if (markers[String(p.id)]){
               try{ markers[String(p.id)].openTooltip(); }catch(e){}
             }
           }catch(e){}
+          setTimeout(function(){ programmaticMove = false; }, 350);
         });
       }
 
@@ -2205,7 +2233,7 @@
       }
 
       atualizar();
-      setInterval(atualizar, 5000);
+      setInterval(atualizar, 8000);
     });
   </script>
 
@@ -2228,7 +2256,7 @@
         }catch(e){}
       }
       check();
-      setInterval(check, 4000);
+      // /* interval check desativado: atualizar somente no F5 (otimização) */
     })();
   </script>
 
@@ -2303,7 +2331,7 @@
       }
 
       check();
-      setInterval(check, 4000);
+      // /* interval check desativado: atualizar somente no F5 (otimização) */
     })();
   </script>
 

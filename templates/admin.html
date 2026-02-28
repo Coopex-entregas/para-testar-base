@@ -937,7 +937,7 @@
                 <option value="online">🟢 Só online</option>
               </select>
 
-              <button id="btnFullMap" class="map-full-btn" type="button">Mapa em tela cheia</button>
+              <a id="btnFullMap" class="map-full-btn" href="{{ url_for('mapa_motoboys') }}" target="_blank" rel="noopener">Mapa em tela cheia</a>
             </div>
           </div>
 
@@ -1148,8 +1148,19 @@
                       </form>
 
                       <button type="button" class="act-ico" title="Imprimir cupom"
+                        data-id="{{ e.id }}"
+                        data-idpad="{{ "%06d"|format(e.id) }}"
+                        data-cliente="{{ e.cliente|default('-') }}"
+                        data-bairro="{{ e.bairro|default('-') }}"
+                        data-endereco="{{ (e.endereco if e.endereco is defined and e.endereco else '-')|replace('"','&quot;') }}"
+                        data-valor="{{ '%.2f'|format(e.valor)|replace('.',',') }}"
+                        data-data="{{ to_brasilia(e.data_envio).strftime('%d/%m/%Y') if e.data_envio else '-' }}"
+                        data-hora-pedido="{{ to_brasilia(e.data_envio).strftime('%H:%M') if e.data_envio else '-' }}"
+                        data-hora-atribuida="{{ to_brasilia(e.data_atribuida).strftime('%H:%M') if e.data_atribuida else '-' }}"
                         data-cooperado="{{ e.cooperado.nome if e.cooperado else 'Sem Cooperado' }}"
-                        onclick="imprimirCupom({{ e.id }}, this)">
+                        data-forma-pgto="{{ e.pagamento|default('-') }}"
+                        data-recebido-por="{{ e.recebido_por|default('-') }}"
+                        onclick="imprimirCupom(this)">
                         <svg viewBox="0 0 24 24" fill="#16a34a">
                           <path d="M19 8h-1V3c0-1.104-.896-2-2-2H8C6.896 1 6 1.896 6 3v5H5C2.794 8 1 9.794 1 12v6c0 2.206 1.794 4 4 4h2v-3h10v3h2c2.206 0 4-1.794 4-4v-6c0-2.206-1.794-4-4-4zM8 3h8v5H8V3zm8 14H8v-4h8v4z"/>
                         </svg>
@@ -1770,168 +1781,165 @@
     }
   </script>
 
-  <!-- CUPOM / MAPA TELA CHEIA -->
+    <!-- CUPOM / IMPRESSÃO (SEM POP-UP) -->
   <script>
-    function imprimirCupom(idEntrega, botao) {
-      var tr = botao.closest ? botao.closest('tr') : null;
-      function get(idx){
-        if(!tr || !tr.children || !tr.children[idx]) return '-';
-        var txt = (tr.children[idx].innerText || '').trim();
-        return txt || '-';
-      }
-
-      var dataDiaBruto = (get(5) || '-').replace(/\s+/g,' ').trim();
-      var matchData = dataDiaBruto.match(/\d{2}\/\d{2}\/\d{4}/);
-      var dataSo = matchData ? matchData[0] : '-';
-
-      var rawId = get(0);
-      var numMatch = rawId.match(/\d+/);
-      var numId = numMatch ? numMatch[0] : rawId;
-
-      var cooperadoCupom = '-';
-      if (botao && botao.dataset && botao.dataset.cooperado){
-        cooperadoCupom = botao.dataset.cooperado;
-      } else {
-        cooperadoCupom = get(8) || '-';
-      }
-
-      var dados = {
-        id: numId,
-        idPad: String(numId).padStart(6,'0'),
-        cliente: get(1),
-        bairro: get(2),
-        endereco: get(3),
-        valor: get(4).replace(/^R\$\s*/,'').trim(),
-        data: dataSo,
-        horaPedido: get(6),
-        cooperado: cooperadoCupom,
-        formaPgto: get(9),
-        recebidoPor: get(12)
-      };
-
-      var agora = new Date();
-      var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
-      var baseHref = "{{ request.host_url }}";
-      var cacheBust = Date.now();
-
-      var html = ''
-+'<!DOCTYPE html>'
-+'<html lang="pt-br">'
-+'<head>'
-+'  <meta charset="utf-8">'
-+'  <title>Cupom #'+dados.id+'</title>'
-+'  <meta name="viewport" content="width=device-width, initial-scale=1.0">'
-+'  <base href="'+baseHref+'">'
-+'  <style>'
-+'    @page { size: 80mm 110mm; margin: 3mm; }'
-+'    *{box-sizing:border-box}'
-+'    body{font-family: Arial, "Segoe UI", Roboto, system-ui, sans-serif;margin:0;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
-+'    .cupom{width:100%; max-width:72mm; margin:0 auto; padding:0}'
-+'    .center{text-align:center}'
-+'    .line{display:flex; justify-content:space-between; gap:8px; font-size:12.5px; margin:2px 0}'
-+'    .big{font-weight:900; font-size:18px}'
-+'    hr{border:none; border-top:1px dotted #000; margin:8px 0}'
-+'    .logo{width:62mm; max-width:100%; height:auto; object-fit:contain; margin:2px auto 6px; display:block}'
-+'    .footer{font-size:11px; text-align:center; margin-top:6px}'
-+'    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}'
-+'    .tiny{font-size:10.5px}'
-+'    .sign{ text-align:center; margin-top:8px; }'
-+'    .sign-line{ width:48mm; height:0; border-top:1px solid #000; margin:10px auto 2px; }'
-+'    .actions{display:flex; gap:10px; justify-content:center; padding:12px 0 16px}'
-+'    .btn{padding:10px 18px; border-radius:10px; font-weight:800; cursor:pointer}'
-+'    .btn-print{border:1px solid #000; background:#000; color:#fff}'
-+'    .btn-close{border:1px solid #c3c8d5; background:#fff; color:#000}'
-+'    .wrap{min-height:100vh; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:10px 8px 18px;}'
-+'    @media print { .actions{display:none} body{background:#fff} }'
-+'  </style>'
-+'</head>'
-+'<body>'
-+'  <div class="wrap">'
-+'    <div class="cupom">'
-+'      <img src="'+logoUrl+'?v='+cacheBust+'" alt="Logo Coopex" class="logo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/200x60?text=COOPEX\';">'
-+'      <div class="center tiny">'
-+'        CNPJ: 05.289.938/0001-97<br>'
-+'        Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN — CEP: 59075-140<br>'
-+'        Fone/WhatsApp: (84) 98111-0706'
-+'      </div>'
-+'      <hr>'
-+'      <div class="center" style="font-weight:800">CUPOM NÃO FISCAL Nº: <span class="mono">'+dados.idPad+'</span></div>'
-+'      <div class="line"><span>Data:</span><span class="mono">'+dados.data+'</span></div>'
-+'      <div class="line"><span>Hora:</span><span class="mono">'+dados.horaPedido+'</span></div>'
-+'      <div class="line"><span>Cliente:</span><span class="mono">'+dados.cliente+'</span></div>'
-+'      <div class="line"><span>Endereço:</span><span class="mono">'+dados.endereco+'</span></div>'
-+'      <div class="line"><span>Bairro:</span><span class="mono">'+dados.bairro+'</span></div>'
-+'      <div class="line"><span>Cooperado:</span><span class="mono">'+dados.cooperado+'</span></div>'
-+'      <div class="line"><span>Forma Pgto:</span><span class="mono">'+dados.formaPgto+'</span></div>'
-+'      <hr>'
-+'      <div class="line"><span>Valor do serviço:</span><span class="mono">'+dados.valor+'</span></div>'
-+'      <div class="line big"><span>TOTAL:</span><span class="mono">'+dados.valor+'</span></div>'
-+'      <hr>'
-+'      <div class="sign"><div class="sign-line"></div><div class="tiny">Supervisor</div></div>'
-+'      <hr>'
-+'      <div class="footer">'
-+'        Emitido em <span class="mono">'+agora.toLocaleDateString("pt-BR")+'</span> às '
-+'        <span class="mono">'+agora.toLocaleTimeString("pt-BR")+'</span><br>'
-+'        Recebido por: <span class="mono">'+dados.recebidoPor+'</span>'
-+'      </div>'
-+'    </div>'
-+'    <div class="actions">'
-+'      <button class="btn btn-print" onclick="window.print()">Imprimir</button>'
-+'      <button class="btn btn-close" onclick="window.close && window.close()">Fechar</button>'
-+'    </div>'
-+'  </div>'
-+'</body>'
-+'</html>';
-
+    // Impressão via IFRAME invisível (evita bloqueio de pop-up)
+    window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
       try{
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var w = window.open(url, '_blank');
-        if(w && !w.closed){
-          setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 15000);
-          return;
+        var iframe = document.getElementById('tm20x_print_iframe');
+        if(!iframe){
+          iframe = document.createElement('iframe');
+          iframe.id = 'tm20x_print_iframe';
+          iframe.style.position = 'fixed';
+          iframe.style.right = '0';
+          iframe.style.bottom = '0';
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.style.border = '0';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+          document.body.appendChild(iframe);
         }
-        try{ URL.revokeObjectURL(url); }catch(e){}
-      }catch(e){}
-
-      var win = null;
-      try { win = window.open('about:blank', '_blank', 'width=480,height=800'); } catch(e){}
-      if (win && !win.closed) {
-        try { win.opener = null; } catch(e){}
-        try{
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-          return;
-        }catch(e){}
-      }
-
-      showToast('<strong>Pop-up bloqueado.</strong> Libere pop-ups para imprimir.');
-    }
-
-    function abrirMapaTelaCheia() {
-      try {
-        var url = "{{ url_for('mapa_motoboys') }}";
-        var a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch (e) {
+        var w = iframe.contentWindow;
+        var d = iframe.contentDocument || w.document;
+        d.open();
+        d.write(htmlDoc);
+        d.close();
+        setTimeout(function(){
+          try{ w.focus(); w.print(); }catch(e){ console.error(e); alert('Falha ao imprimir.'); }
+        }, 250);
+      }catch(e){
         console.error(e);
-        showToast('<strong>Não foi possível abrir o mapa agora.</strong>');
+        alert('Erro ao imprimir o cupom.');
+      }
+    };
+
+    // Gera cupom completo a partir dos data-* do botão (sem depender do innerText da tabela)
+    function imprimirCupom(btn){
+      try{
+        if(!btn || !btn.dataset){ return; }
+        var dados = {
+          id: btn.dataset.id || '-',
+          idPad: btn.dataset.idpad || String(btn.dataset.id || '-'),
+          cliente: btn.dataset.cliente || '-',
+          bairro: btn.dataset.bairro || '-',
+          endereco: btn.dataset.endereco || '-',
+          valor: btn.dataset.valor || '-',
+          data: btn.dataset.data || '-',
+          horaPedido: btn.dataset.horaPedido || '-',
+          horaAtribuida: btn.dataset.horaAtribuida || '-',
+          cooperado: btn.dataset.cooperado || '-',
+          formaPgto: btn.dataset.formaPgto || '-',
+          recebidoPor: btn.dataset.recebidoPor || '-'
+        };
+
+        var logoUrl = "{{ url_for('static', filename='logo_coopex.png', _external=True) }}";
+        var agora = new Date();
+        var emitData = agora.toLocaleDateString('pt-BR');
+        var emitHora = agora.toLocaleTimeString('pt-BR');
+
+        var html = `<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Cupom #${dados.idPad}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    @page { size: 80mm 120mm; margin: 3mm; }
+    *{ box-sizing:border-box; }
+    body{ font-family: Arial, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; color:#000; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .cupom{ width:100%; max-width:72mm; margin:0 auto; }
+    .logo{ width:62mm; max-width:100%; height:auto; display:block; margin:2mm auto 1mm; object-fit:contain; }
+    .center{ text-align:center; }
+    .tiny{ font-size:10.5px; line-height:1.25; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    hr{ border:none; border-top:1px dotted #000; margin:6px 0; }
+    .line{ display:flex; justify-content:space-between; gap:8px; font-size:12.3px; margin:2px 0; }
+    .line span:last-child{ text-align:right; }
+    .title{ font-weight:900; font-size:13px; }
+    .big{ font-weight:900; font-size:17px; }
+    .actions{ display:flex; gap:8px; justify-content:center; margin-top:10px; }
+    .btn{ padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; border:1px solid #111; background:#111; color:#fff; }
+    .btn.alt{ background:#fff; color:#111; border:1px solid #cbd5e1; }
+    @media print { .actions{ display:none; } }
+  </style>
+</head>
+<body>
+  <div class="cupom">
+    <img class="logo" src="${logoUrl}?v=${Date.now()}" alt="COOPEX" onerror="this.onerror=null;this.style.display='none';">
+    <div class="center tiny">
+      <div style="font-weight:900; font-size:12px;">COOPEX ENTREGAS</div>
+      <div>CNPJ: 05.289.938/0001-97</div>
+      <div>Rua José Freire de Souza, 22 — Lagoa Nova — Natal/RN</div>
+      <div>Fone/WhatsApp: (84) 98111-0706</div>
+    </div>
+    <hr>
+    <div class="center title">COMPROVANTE / CUPOM NÃO FISCAL</div>
+    <div class="center tiny">Nº: <span class="mono">${dados.idPad}</span></div>
+    <hr>
+
+    <div class="line"><span>Data:</span><span class="mono">${dados.data}</span></div>
+    <div class="line"><span>Hora pedido:</span><span class="mono">${dados.horaPedido}</span></div>
+    <div class="line"><span>Hora atribuída:</span><span class="mono">${dados.horaAtribuida}</span></div>
+
+    <hr>
+    <div class="line"><span>Cliente:</span><span class="mono">${dados.cliente}</span></div>
+    <div class="line"><span>Endereço:</span><span class="mono">${dados.endereco}</span></div>
+    <div class="line"><span>Bairro:</span><span class="mono">${dados.bairro}</span></div>
+    <div class="line"><span>Cooperado:</span><span class="mono">${dados.cooperado}</span></div>
+    <div class="line"><span>Forma pgto:</span><span class="mono">${dados.formaPgto}</span></div>
+
+    <hr>
+    <div class="line"><span>Valor do serviço:</span><span class="mono">R$ ${dados.valor}</span></div>
+    <div class="line big"><span>TOTAL:</span><span class="mono">R$ ${dados.valor}</span></div>
+
+    <hr>
+    <div class="center tiny">
+      Emitido em <span class="mono">${emitData}</span> às <span class="mono">${emitHora}</span><br>
+      Recebido por: <span class="mono">${dados.recebidoPor}</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="window.print()">Imprimir</button>
+      <button class="btn alt" onclick="window.close && window.close()">Fechar</button>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        window.__printHtmlTM20X(html);
+      }catch(e){
+        console.error(e);
+        alert('Não foi possível gerar o cupom.');
       }
     }
-
-    window.addEventListener('DOMContentLoaded', function(){
-      var btnFull = document.getElementById('btnFullMap');
-      if (btnFull) btnFull.addEventListener('click', abrirMapaTelaCheia);
-    });
   </script>
 
-  <script id="tm20x_iframe_printer">
+<!-- SOCORRO (áudio) -->
+  <audio id="socorroAudio" src="{{ url_for('static', filename='socorro.mp3') }}" preload="auto"></audio>
+  <script>
+    (function socorroPolling(){
+      const audio = document.getElementById('socorroAudio');
+      async function check(){
+        try{
+          const r = await fetch('{{ url_for("admin_novo_socorro") }}', {cache:'no-store'});
+          if(!r.ok) return;
+          const data = await r.json();
+          if(data && data.novo){
+            try{ if(audio){ audio.currentTime = 0; audio.play(); } }catch(e){}
+            try{
+              showToast('<strong>⚠️ SOCORRO:</strong> '+(data.cooperado||'')+' — '+(data.mensagem||''));
+            }catch(e){}
+          }
+        }catch(e){}
+      }
+      check();
+      setInterval(check, 4000);
+    })();
+  </script>
+
+
+<script id="tm20x_iframe_printer">
   // Impressão TM-T20X 80mm via IFRAME (não usa pop-up)
   window.__printHtmlTM20X = window.__printHtmlTM20X || function(htmlDoc){
     try{
@@ -2058,15 +2066,14 @@
 
       var selectedId = '';
       var followMode = false;
-      var followZoom = 16;
       var userInteracted = false;
       var programmaticMove = false;
 
       // Se o admin mexer no mapa (zoom/arrastar), não vamos mais resetar o zoom automaticamente
-      map.on('zoomstart dragstart movestart', function(){
+      map.on('mousedown dragstart zoomstart movestart', function(){
         if (!programmaticMove){
           userInteracted = true;
-          followMode = false;
+          followMode = false; // parou de seguir ao mexer manualmente
         }
       });
 
@@ -2133,7 +2140,19 @@
           }
         });
 
-        // se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
+        
+        // Se estiver em modo seguir, acompanha a posição do cooperado selecionado (sem mudar o zoom)
+        try{
+          if (followMode && selectedId){
+            var sp = list.find(function(p){ return String(p.id) === String(selectedId); });
+            if (sp && typeof sp.lat === 'number' && typeof sp.lng === 'number'){
+              // panTo é mais suave e não força zoom; se quiser "grudar" mais, troque por setView mantendo zoom
+              map.panTo([sp.lat, sp.lng], { animate:true });
+            }
+          }
+        }catch(e){}
+
+// se não tem seleção, ajusta bounds (sem ficar pulando com zoom alto)
         try{
           if (list.length && (!sel || !sel.value)){
             var pts = list
@@ -2155,7 +2174,6 @@
         }
         renderList(list);
         renderMarkers(list);
-        followSelectedIfNeeded();
       }
 
       if (filterSel){
@@ -2169,37 +2187,38 @@
         sel.addEventListener('change', function(){
           var id = sel.value;
           selectedId = id || '';
-          if (!id){ followMode = false; return; }
+          if (!id) { followMode = false; return; }
+
+          // Ao selecionar: centraliza, aplica zoom e entra em modo seguir.
           followMode = true;
           userInteracted = false;
+
           programmaticMove = true;
           var p = lastData.find(function(x){ return String(x.id) === String(id); });
-          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') { programmaticMove = false; return; }
 
           try{
-            map.setView([p.lat, p.lng], followZoom, {animate:true});
-            setTimeout(function(){ programmaticMove = false; }, 350);
+            map.setView([p.lat, p.lng], 16, { animate:true });
             if (markers[String(p.id)]){
               try{ markers[String(p.id)].openTooltip(); }catch(e){}
             }
           }catch(e){}
+          setTimeout(function(){ programmaticMove = false; }, 250);
         });
-
-      // Seguir o cooperado selecionado a cada atualização (estilo Uber)
-      function followSelectedIfNeeded(){
-        try{
-          if (!followMode || !selectedId) return;
-          var mk = markers[String(selectedId)];
-          if(!mk) return;
-          programmaticMove = true;
-          map.setView(mk.getLatLng(), Math.max(map.getZoom(), followZoom), {animate:true});
-          setTimeout(function(){ programmaticMove = false; }, 300);
-        }catch(e){}
       }
 
+
+      // Botão: mapa em tela cheia
+      // Aqui o botão/atalho deve abrir a página dedicada (mapa_motoboys.html), sem forçar fullscreen dentro deste painel.
+      // O elemento #btnFullMap é um <a href="...">, então não precisamos interceptar clique.
+      var fullBtn = document.getElementById('btnFullMap');
+      if (fullBtn && fullBtn.tagName === 'BUTTON'){
+        fullBtn.addEventListener('click', function(){
+          window.open("{{ url_for('mapa_motoboys') }}", "_blank");
+        });
       }
 
-      async function atualizar(){
+async function atualizar(){
         try{
           const r = await fetch('{{ url_for("mapa_motoboys") }}?format=json', {
             cache:'no-store',
@@ -2237,8 +2256,7 @@
         }catch(e){}
       }
       check();
-      // Atualização automática desativada (só F5)
-      // setInterval(check, 4000);
+      setInterval(check, 4000);
     })();
   </script>
 
@@ -2313,9 +2331,7 @@
       }
 
       check();
-      // Atualização automática desativada (só F5)
-      // // Atualização automática desativada (só F5)
-      // setInterval(check, 4000);
+      setInterval(check, 4000);
     })();
   </script>
 

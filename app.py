@@ -1,3 +1,10 @@
+
+import eventlet
+eventlet.monkey_patch()
+
+from itsdangerous import URLSafeSerializer, BadSignature
+from functools import wraps
+
 import os
 import io
 import re
@@ -7107,3 +7114,105 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # importante rodar pelo socketio, não pelo app.run
     socketio.run(app, host='0.0.0.0', port=port)
+
+
+
+# =============================
+# MOBILE TOKEN AUTH
+# =============================
+
+def _mobile_serializer():
+    return URLSafeSerializer(app.config["SECRET_KEY"], salt="mobile_token_v1")
+
+def gerar_token_mobile(cooperado_id: int):
+    return _mobile_serializer().dumps({"cooperado_id": int(cooperado_id)})
+
+def ler_token_mobile(token: str):
+    return _mobile_serializer().loads(token)
+
+def mobile_auth_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify(ok=False, error="missing_token"), 401
+        token = auth.split(" ", 1)[1].strip()
+        try:
+            data = ler_token_mobile(token)
+            cooperado_id = int(data.get("cooperado_id"))
+        except (BadSignature, Exception):
+            return jsonify(ok=False, error="invalid_token"), 401
+
+        coop = Cooperado.query.get(cooperado_id)
+        if not coop or not coop.ativo:
+            return jsonify(ok=False, error="cooperado_invalido"), 401
+
+        request.cooperado_mobile = coop
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+@app.post("/api/mobile/login")
+def api_mobile_login():
+    data = request.get_json(silent=True) or {}
+    nome = (data.get("nome") or "").strip()
+    senha = (data.get("senha") or "").strip()
+
+    if not nome or not senha:
+        return jsonify(ok=False, error="nome_senha_obrigatorios"), 400
+
+    coop = Cooperado.query.filter(func.lower(Cooperado.nome) == nome.lower()).first()
+    if not coop or not coop.check_senha(senha) or not coop.ativo:
+        return jsonify(ok=False, error="credenciais_invalidas"), 401
+
+    token = gerar_token_mobile(coop.id)
+    return jsonify(ok=True, token=token, cooperado_id=coop.id, nome=coop.nome)
+
+
+@app.post("/api/mobile/ping")
+@mobile_auth_required
+def api_mobile_ping():
+    coop = request.cooperado_mobile
+    data = request.get_json(silent=True) or {}
+
+    try:
+        lat = float(data.get("lat"))
+        lng = float(data.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="lat_lng_invalidos"), 400
+
+    speed_mps = data.get("speed_mps", None)
+    heading = data.get("heading", None)
+    accuracy = data.get("accuracy", None)
+
+    v_kmh = None
+    try:
+        if speed_mps is not None:
+            v_kmh = float(speed_mps) * 3.6
+    except (TypeError, ValueError):
+        v_kmh = None
+
+    coop.last_lat = lat
+    coop.last_lng = lng
+    coop.last_ping = datetime.utcnow()
+    coop.online = True
+    coop.last_speed_kmh = v_kmh
+
+    try:
+        coop.last_heading = float(heading) if heading is not None else None
+    except (TypeError, ValueError):
+        coop.last_heading = None
+
+    try:
+        coop.last_accuracy_m = float(accuracy) if accuracy is not None else None
+    except (TypeError, ValueError):
+        coop.last_accuracy_m = None
+
+    db.session.commit()
+
+    try:
+        emitir_posicao_motoboy(coop, lat, lng, v_kmh)
+    except Exception:
+        pass
+
+    return jsonify(ok=True)

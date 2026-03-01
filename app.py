@@ -1,9 +1,11 @@
-
-import eventlet
-eventlet.monkey_patch()
-
 from itsdangerous import URLSafeSerializer, BadSignature
 from functools import wraps
+
+# NOTE (Render / Python 3.14):
+# eventlet is not compatible with Python 3.14 at the moment (AttributeError: start_joinable_thread).
+# This app is configured to use Flask-SocketIO in "threading" mode so it runs on Render's Python 3.14.
+# Start command suggestion:
+#   gunicorn -w 1 --threads 4 -k gthread -b 0.0.0.0:$PORT app:app
 
 import os
 import io
